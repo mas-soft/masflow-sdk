@@ -9,6 +9,7 @@ variables:
 steps:
   # Track signup event (analytics module)
   - name: track-signup
+    type: activity
     activity:
       type: trackEvent
       args:
@@ -20,6 +21,7 @@ steps:
 
   # Render welcome email (email module)
   - name: render-welcome
+    type: activity
     activity:
       type: renderTemplate
       args:
@@ -31,6 +33,7 @@ steps:
 
   # Send the email (email module)
   - name: send-welcome
+    type: activity
     activity:
       type: sendEmail
       args:
@@ -41,6 +44,7 @@ steps:
 
   # Track email sent event (analytics module)
   - name: track-email-sent
+    type: activity
     activity:
       type: trackEvent
       args:

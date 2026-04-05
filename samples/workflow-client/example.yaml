@@ -3,6 +3,7 @@ description: A simple demo workflow
 
 steps:
   - name: greet
+    type: activity
     activity:
       type: greet
       args:
@@ -10,6 +11,7 @@ steps:
       ref: greeting
 
   - name: log-greeting
+    type: activity
     activity:
       type: logNotification
       args:

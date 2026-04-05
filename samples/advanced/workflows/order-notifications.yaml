@@ -9,6 +9,7 @@ variables:
 
 steps:
   - name: send-confirmation-email
+    type: activity
     activity:
       type: sendEmail
       args:
@@ -18,6 +19,7 @@ steps:
       ref: emailResult
 
   - name: send-sms-confirmation
+    type: activity
     activity:
       type: sendSMS
       args:
@@ -26,6 +28,7 @@ steps:
       ref: smsResult
 
   - name: notify-ops-slack
+    type: activity
     activity:
       type: sendSlack
       args:
@@ -33,6 +36,7 @@ steps:
         message: "New order ${order_id} ($${order_total}) - email: ${emailResult.status}, sms: ${smsResult.status}"
 
   - name: send-webhook
+    type: activity
     activity:
       type: sendWebhook
       args:
@@ -40,6 +44,7 @@ steps:
         body: '{"event":"order_confirmed","order_id":"${order_id}","total":${order_total}}'
 
   - name: audit-log
+    type: activity
     activity:
       type: logNotification
       args:

@@ -6,6 +6,7 @@ variables:
 
 steps:
   - name: say-hello
+    type: activity
     activity:
       type: greet
       args:

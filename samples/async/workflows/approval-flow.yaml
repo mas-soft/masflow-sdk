@@ -10,6 +10,7 @@ variables:
 steps:
   # Step 1: Request approval -- workflow pauses here
   - name: request-approval
+    type: activity
     activity:
       type: requestApproval
       args:
@@ -25,6 +26,7 @@ steps:
 
   # Step 2: Runs after approval signal is received
   - name: notify-submitter
+    type: activity
     activity:
       type: notifyComplete
       args:
