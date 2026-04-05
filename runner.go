@@ -20,6 +20,7 @@ type Runner struct {
 	temporalClient client.Client
 	worker         worker.Worker
 	platformClient *platform.Client
+	workflowClient *WorkflowClient
 	ownsClient     bool // true if we created the Temporal client (and must close it)
 	registered     bool // true if we registered with the platform
 	logger         *slog.Logger
@@ -42,11 +43,28 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 		opt(cfg)
 	}
 
-	return &Runner{
+	r := &Runner{
 		module: m,
 		config: cfg,
 		logger: cfg.logger,
-	}, nil
+	}
+
+	// Create WorkflowClient eagerly if URL is configured.
+	if cfg.workflowURL != "" {
+		r.workflowClient = NewWorkflowClient(
+			cfg.workflowURL,
+			WithWorkflowHTTPClient(cfg.httpClient),
+			WithWorkflowConnectOptions(cfg.connectOptions...),
+		)
+	}
+
+	return r, nil
+}
+
+// Workflows returns the WorkflowClient for executing and managing workflows.
+// Returns nil if WithWorkflowURL was not configured.
+func (r *Runner) Workflows() *WorkflowClient {
+	return r.workflowClient
 }
 
 // Run starts the worker, registers with the platform (if configured),

@@ -9,6 +9,7 @@ The Masflow SDK is a standalone Go module that lets you create custom activity m
 - Built-in Temporal worker lifecycle management
 - Automatic platform registration via Connect/gRPC
 - Graceful shutdown with signal handling
+- Workflow execution, monitoring, and lifecycle management
 
 ---
 
@@ -23,9 +24,10 @@ The Masflow SDK is a standalone Go module that lets you create custom activity m
 7. [Advanced Usage](#advanced-usage)
 8. [Architecture](#architecture)
 9. [API Reference](#api-reference)
-10. [Workflow YAML Integration](#workflow-yaml-integration)
-11. [Configuration Reference](#configuration-reference)
-12. [Troubleshooting](#troubleshooting)
+10. [Workflow Client](#workflow-client)
+11. [Workflow YAML Integration](#workflow-yaml-integration)
+12. [Configuration Reference](#configuration-reference)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -404,6 +406,7 @@ defer w.Stop()
 | `WithTemporalNamespace(string)` | `default` | Temporal namespace |
 | `WithTemporalClient(client.Client)` | — | Bring your own Temporal client (ignores address/namespace) |
 | `WithPlatformURL(string)` | — | Masflow platform URL for module registration. If empty, skips registration |
+| `WithWorkflowURL(string)` | — | Masflow platform URL for WorkflowClient. Enables `runner.Workflows()` |
 | `WithLogger(*slog.Logger)` | `slog.Default()` | Structured logger |
 | `WithShutdownTimeout(time.Duration)` | `30s` | Max time for graceful shutdown |
 | `WithWorkerOptions(worker.Options)` | — | Pass-through Temporal worker options (concurrency, rate limits, etc.) |
@@ -495,10 +498,13 @@ sdk/
   worker.go              RegisterAll (Temporal worker integration)
   runner.go              Runner lifecycle (start/stop/run)
   runner_options.go      RunnerOption functional options
+  workflow_client.go     WorkflowClient (execute, status, monitor, lifecycle)
+  workflow_types.go      Pure Go types for workflow operations
   platform/
     client.go            Connect/gRPC client for ModuleRegistry
   internal/
-    activitypb/          Generated protobuf + Connect code (internal)
+    pb/activity/         Generated protobuf + Connect code for module registry
+    pb/workflow/         Generated protobuf + Connect code for workflow service
 ```
 
 ### Dependencies
@@ -563,6 +569,9 @@ runner.Run(ctx context.Context) error
 // Non-blocking start/stop
 runner.Start(ctx context.Context) error
 runner.Stop(ctx context.Context) error
+
+// Access integrated WorkflowClient (requires WithWorkflowURL)
+runner.Workflows() *WorkflowClient
 ```
 
 ### Worker
@@ -584,6 +593,169 @@ type VoidHandler[TReq any] func(ctx context.Context, req TReq) error
 // Async handler
 type AsyncHandler[TReq, TRes any] func(ctx context.Context, req TReq, async *AsyncCallbackInfo) (TRes, error)
 ```
+
+---
+
+## Workflow Client
+
+The SDK includes a `WorkflowClient` for executing, monitoring, and managing workflows on the Masflow platform. This is useful for building CLI tools, dashboards, or triggering workflows programmatically from your Go services.
+
+### Creating a WorkflowClient
+
+**Standalone** (no Runner needed):
+
+```go
+wc := sdk.NewWorkflowClient("http://localhost:10000",
+    sdk.WithWorkflowHTTPClient(customHTTPClient),       // optional
+    sdk.WithWorkflowConnectOptions(connectOpts...),     // optional
+)
+```
+
+**Via Runner** (shares HTTP/Connect config):
+
+```go
+runner, _ := sdk.NewRunner(mod,
+    sdk.WithTemporalAddress("localhost:7233"),
+    sdk.WithPlatformURL("http://localhost:10000"),
+    sdk.WithWorkflowURL("http://localhost:10000"),
+)
+runner.Start(ctx)
+
+wc := runner.Workflows() // non-nil when WithWorkflowURL is set
+```
+
+### Executing Workflows
+
+```go
+// From YAML source
+result, err := wc.ExecuteYAML(ctx, yamlString, &sdk.ExecuteSourceOptions{
+    WorkflowID: "my-workflow-123",
+    Variables:  map[string]any{"env": "staging"},
+    TaskQueue:  "custom-queue",
+    WorkflowTimeout: 10 * time.Minute,
+    Context: map[string]string{"tenant": "acme"},
+})
+fmt.Printf("Started: %s (status: %s)\n", result.WorkflowID, result.Status)
+
+// From JSON source
+result, err := wc.ExecuteJSON(ctx, jsonString, nil)
+
+// From a saved declaration
+declResult, err := wc.ExecuteDeclaration(ctx, "decl-uuid", &sdk.ExecuteDeclarationOptions{
+    Variables: map[string]any{"amount": 99.99},
+})
+```
+
+### Querying Status
+
+```go
+// Simple status + trace
+status, err := wc.GetStatus(ctx, "workflow-id")
+fmt.Printf("Status: %s, Trace entries: %d\n", status.Status, len(status.Trace))
+
+// Detailed description (execution info, child workflows, etc.)
+info, err := wc.Describe(ctx, "workflow-id", "run-id")
+fmt.Printf("Type: %s, Duration: %s, Errors: %v\n",
+    info.WorkflowType, info.ExecutionTime, info.HasErrors)
+```
+
+### Monitoring & Trace
+
+```go
+// Real-time step-level monitoring
+monitor, err := wc.Monitor(ctx, "workflow-id", "run-id")
+fmt.Printf("Progress: %d/%d (%.0f%%)\n",
+    monitor.Progress.CurrentStep, monitor.Progress.TotalSteps, monitor.Progress.Percentage)
+for _, step := range monitor.Steps {
+    fmt.Printf("  [%s] %s - %s\n", step.StepType, step.Name, step.Status)
+}
+
+// BPM execution trace
+trace, err := wc.Trace(ctx, "workflow-id", "run-id")
+for _, entry := range trace {
+    fmt.Printf("%s [%s] %s: %s\n", entry.Timestamp, entry.StepType, entry.Status, entry.Details)
+}
+
+// Custom queries
+queryResult, err := wc.Query(ctx, "workflow-id", "currentState", nil)
+fmt.Printf("Query result: %v\n", queryResult.Result)
+```
+
+### Listing & Searching
+
+```go
+// List with filters
+list, err := wc.List(ctx, &sdk.ListWorkflowsOptions{
+    Status:   sdk.WorkflowStatusRunning,
+    PageSize: 20,
+    OrderBy:  "start_time desc",
+    Category: "notifications",
+})
+for _, w := range list.Workflows {
+    fmt.Printf("%s [%s] %s\n", w.WorkflowID, w.Status, w.WorkflowType)
+}
+
+// Advanced search
+results, err := wc.Search(ctx, &sdk.SearchWorkflowsOptions{
+    Query:      "order processing",
+    Tags:       []string{"critical"},
+    Categories: []string{"orders", "payments"},
+    SortBy:     "created_at",
+    SortOrder:  "desc",
+})
+```
+
+### Lifecycle Management
+
+```go
+// Signal a running workflow
+wc.Signal(ctx, "workflow-id", "approval", map[string]any{"approved": true})
+
+// Cancel (cooperative cancellation)
+wc.Cancel(ctx, "workflow-id", "no longer needed")
+
+// Terminate (forceful)
+wc.Terminate(ctx, "workflow-id", "stuck workflow")
+
+// Pause and resume
+wc.Pause(ctx, "workflow-id", "run-id", "manual intervention")
+wc.Resume(ctx, "workflow-id", "run-id", "issue resolved")
+```
+
+### Validate
+
+```go
+result, err := wc.Validate(ctx, yamlString)
+if !result.Valid {
+    for _, e := range result.Errors {
+        fmt.Println("Error:", e)
+    }
+}
+for _, w := range result.Warnings {
+    fmt.Println("Warning:", w)
+}
+```
+
+### WorkflowClient API Summary
+
+| Method | Description |
+|--------|-------------|
+| `ExecuteYAML(ctx, yaml, opts)` | Execute workflow from YAML source |
+| `ExecuteJSON(ctx, json, opts)` | Execute workflow from JSON source |
+| `ExecuteDeclaration(ctx, id, opts)` | Execute a saved workflow declaration |
+| `GetStatus(ctx, workflowID)` | Get workflow status and trace |
+| `Describe(ctx, workflowID, runID)` | Get detailed workflow execution info |
+| `List(ctx, opts)` | List workflows with filters and pagination |
+| `Search(ctx, opts)` | Advanced search with facets |
+| `Query(ctx, workflowID, queryType, args)` | Send a query to a running workflow |
+| `Monitor(ctx, workflowID, runID)` | Get real-time step-level monitoring data |
+| `Trace(ctx, workflowID, runID)` | Get BPM execution trace |
+| `Cancel(ctx, workflowID, reason)` | Request cooperative cancellation |
+| `Signal(ctx, workflowID, signalName, data)` | Send a signal to a workflow |
+| `Terminate(ctx, workflowID, reason)` | Forcefully terminate a workflow |
+| `Pause(ctx, workflowID, runID, reason)` | Pause a running workflow |
+| `Resume(ctx, workflowID, runID, reason)` | Resume a paused workflow |
+| `Validate(ctx, yaml)` | Validate workflow YAML without executing |
 
 ---
 

@@ -8,7 +8,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	activity "github.com/mas-soft/masflow/sdk/internal/activitypb/activity"
+	activity "github.com/mas-soft/masflow/sdk/internal/pb/activity"
 	http "net/http"
 	strings "strings"
 )

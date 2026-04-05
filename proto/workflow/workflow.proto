@@ -1,0 +1,475 @@
+syntax = "proto3";
+
+package workflow;
+
+option go_package = "github.com/mas-soft/masflow/sdk/internal/pb/workflow";
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/any.proto";
+
+// ============================================================
+// WorkflowService — subset of RPCs exposed to SDK clients
+// ============================================================
+
+service WorkflowService {
+  rpc ExecuteWorkflowSource(ExecuteWorkflowSourceRequest) returns (ExecuteWorkflowResponse);
+  rpc ExecuteWorkflowDeclaration(ExecuteWorkflowDeclarationRequest) returns (ExecuteWorkflowDeclarationResponse);
+  rpc GetWorkflowStatus(GetWorkflowStatusRequest) returns (GetWorkflowStatusResponse);
+  rpc DescribeWorkflow(DescribeWorkflowRequest) returns (DescribeWorkflowResponse);
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  rpc QueryWorkflow(QueryWorkflowRequest) returns (QueryWorkflowResponse);
+  rpc QueryMonitorStatus(QueryMonitorStatusRequest) returns (QueryMonitorStatusResponse);
+  rpc QueryTrace(QueryTraceRequest) returns (QueryTraceResponse);
+  rpc CancelWorkflow(CancelWorkflowRequest) returns (CancelWorkflowResponse);
+  rpc SignalWorkflow(SignalWorkflowRequest) returns (SignalWorkflowResponse);
+  rpc TerminateWorkflow(TerminateWorkflowRequest) returns (TerminateWorkflowResponse);
+  rpc PauseWorkflow(PauseWorkflowRequest) returns (PauseWorkflowResponse);
+  rpc ResumeWorkflow(ResumeWorkflowRequest) returns (ResumeWorkflowResponse);
+  rpc SearchWorkflows(SearchWorkflowsRequest) returns (SearchWorkflowsResponse);
+  rpc ValidateWorkflow(ValidateWorkflowRequest) returns (ValidateWorkflowResponse);
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum WorkflowSourceFormat {
+  WORKFLOW_SOURCE_FORMAT_UNSPECIFIED = 0;
+  WORKFLOW_SOURCE_FORMAT_YAML = 1;
+  WORKFLOW_SOURCE_FORMAT_JSON = 2;
+}
+
+enum WorkflowStatus {
+  WORKFLOW_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_STATUS_PENDING = 1;
+  WORKFLOW_STATUS_RUNNING = 2;
+  WORKFLOW_STATUS_COMPLETED = 3;
+  WORKFLOW_STATUS_FAILED = 4;
+  WORKFLOW_STATUS_CANCELLED = 5;
+  WORKFLOW_STATUS_PAUSED = 6;
+}
+
+enum ExecutionMode {
+  EXECUTION_MODE_UNSPECIFIED = 0;
+  EXECUTION_MODE_SYNC = 1;
+  EXECUTION_MODE_ASYNC = 2;
+  EXECUTION_MODE_STREAMING = 3;
+  EXECUTION_MODE_BATCH = 4;
+  EXECUTION_MODE_REACTIVE = 5;
+}
+
+// ============================================================
+// Common types
+// ============================================================
+
+message WorkflowStartOptions {
+  string workflow_id = 1;
+  string workflow_type = 2;
+  string task_queue = 3;
+  google.protobuf.Duration workflow_timeout = 4;
+  google.protobuf.Duration workflow_run_timeout = 5;
+  google.protobuf.Duration workflow_task_timeout = 6;
+  RetryPolicy retry_policy = 7;
+  int32 max_attempts = 8;
+  map<string, google.protobuf.Value> search_attributes = 13;
+  map<string, google.protobuf.Value> memo = 14;
+  map<string, string> context = 20;
+}
+
+message WorkflowExecutionOptions {
+  ExecutionMode execution_mode = 1;
+  int32 max_parallel_steps = 2;
+  int32 max_parallel_branches = 3;
+  bool continue_on_error = 4;
+  bool enable_step_tracking = 10;
+  bool enable_performance_monitoring = 11;
+}
+
+message RetryPolicy {
+  int32 max_attempts = 1;
+  google.protobuf.Duration initial_interval = 2;
+  google.protobuf.Duration max_interval = 3;
+  double backoff_coefficient = 4;
+}
+
+message Configuration {
+  int32 max_iterations = 1;
+  google.protobuf.Duration default_timeout = 2;
+  bool enable_tracing = 3;
+  bool enable_validation = 4;
+}
+
+message WorkflowInstance {
+  map<string, google.protobuf.Value> bindings = 1;
+  repeated TraceEntry trace = 2;
+  WorkflowStatus status = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message TraceEntry {
+  google.protobuf.Timestamp timestamp = 1;
+  string step_type = 2;
+  string details = 3;
+  string status = 4;
+  string error = 5;
+  map<string, google.protobuf.Value> data = 6;
+}
+
+message Workflow {
+  map<string, google.protobuf.Value> variables = 1;
+  repeated Step steps = 2;
+  WorkflowStartOptions start_options = 5;
+  WorkflowExecutionOptions execution_options = 6;
+  string description = 8;
+  string version = 9;
+  string author = 10;
+  string name = 16;
+}
+
+message Step {
+  // SDK doesn't need to construct steps — workflows come from YAML source.
+  // This is a placeholder to keep the Workflow message valid.
+  string name = 14;
+}
+
+// ============================================================
+// Execute
+// ============================================================
+
+message ExecuteWorkflowSourceRequest {
+  string workflow_id = 1;
+  string source = 2;
+  WorkflowSourceFormat format = 3;
+  map<string, google.protobuf.Value> initial_variables = 4;
+  Configuration config = 5;
+  WorkflowStartOptions start_options = 8;
+  WorkflowExecutionOptions execution_options = 9;
+  map<string, string> context = 11;
+}
+
+message ExecuteWorkflowResponse {
+  string workflow_id = 1;
+  WorkflowStatus status = 2;
+  map<string, google.protobuf.Value> result = 3;
+  string error = 4;
+  WorkflowInstance instance = 5;
+}
+
+message ExecuteWorkflowDeclarationRequest {
+  string declaration_id = 1;
+  string workflow_id = 2;
+  map<string, google.protobuf.Value> initial_variables = 3;
+  Configuration config = 4;
+  WorkflowStartOptions start_options = 5;
+  WorkflowExecutionOptions execution_options = 6;
+}
+
+message ExecuteWorkflowDeclarationResponse {
+  string workflow_id = 1;
+  WorkflowStatus status = 2;
+  string declaration_id = 3;
+  string declaration_name = 4;
+  WorkflowInstance instance = 5;
+  string error = 6;
+}
+
+// ============================================================
+// Status & Describe
+// ============================================================
+
+message GetWorkflowStatusRequest {
+  string workflow_id = 1;
+}
+
+message GetWorkflowStatusResponse {
+  string workflow_id = 1;
+  WorkflowStatus status = 2;
+  WorkflowInstance instance = 3;
+  repeated TraceEntry trace = 4;
+}
+
+message DescribeWorkflowRequest {
+  string workflow_id = 1;
+  string run_id = 2;
+}
+
+message WorkflowExecutionInfo {
+  string workflow_id = 1;
+  string run_id = 2;
+  string workflow_type = 3;
+  WorkflowStatus status = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp close_time = 6;
+  google.protobuf.Duration execution_time = 7;
+  string parent_workflow_id = 8;
+  string parent_run_id = 9;
+  map<string, google.protobuf.Value> search_attributes = 10;
+  map<string, google.protobuf.Value> memo = 11;
+  bool has_errors = 12;
+  string error_message = 13;
+  int64 attempt = 14;
+  string task_queue = 16;
+  int64 history_length = 19;
+  int32 pending_activities_count = 22;
+  int32 pending_children_count = 23;
+  string namespace = 24;
+  string declaration_id = 26;
+  string declaration_name = 27;
+}
+
+message RelatedWorkflow {
+  string workflow_id = 1;
+  string run_id = 2;
+  string workflow_type = 3;
+  WorkflowStatus status = 4;
+}
+
+message DescribeWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+  WorkflowExecutionInfo execution_info = 3;
+  repeated RelatedWorkflow child_workflows = 7;
+  repeated RelatedWorkflow sub_workflows = 8;
+}
+
+// ============================================================
+// List & Search
+// ============================================================
+
+message WorkflowFilter {
+  string workflow_type = 1;
+  WorkflowStatus status = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+  google.protobuf.Timestamp start_time_from = 5;
+  google.protobuf.Timestamp start_time_to = 6;
+  string query = 12;
+  repeated string tags = 13;
+  string category = 14;
+  repeated WorkflowStatus statuses = 16;
+}
+
+message ListWorkflowsRequest {
+  WorkflowFilter filter = 1;
+  int32 page_size = 2;
+  string next_page_token = 3;
+  string order_by = 4;
+}
+
+message WorkflowSummary {
+  string workflow_id = 1;
+  string run_id = 2;
+  string workflow_type = 3;
+  WorkflowStatus status = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp close_time = 6;
+  google.protobuf.Duration execution_time = 7;
+  string parent_workflow_id = 8;
+  string parent_run_id = 9;
+  bool has_errors = 11;
+  string declaration_name = 13;
+}
+
+message ListWorkflowsResponse {
+  repeated WorkflowSummary workflows = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message SearchWorkflowsRequest {
+  string query = 1;
+  repeated string tags = 3;
+  repeated string categories = 4;
+  WorkflowStatus status = 11;
+  int32 page_size = 13;
+  string next_page_token = 14;
+  string sort_by = 15;
+  string sort_order = 16;
+}
+
+message WorkflowMetadata {
+  string workflow_id = 1;
+  string name = 2;
+  string description = 3;
+  string version = 4;
+  string author = 5;
+  repeated string tags = 6;
+  string category = 7;
+  WorkflowStatus status = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message SearchWorkflowsResponse {
+  repeated WorkflowMetadata workflows = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+  map<string, int32> facet_counts = 4;
+}
+
+// ============================================================
+// Query & Monitor
+// ============================================================
+
+message QueryWorkflowRequest {
+  string workflow_id = 1;
+  string query_type = 2;
+  map<string, google.protobuf.Value> query_args = 3;
+  string run_id = 4;
+}
+
+message QueryWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+  map<string, google.protobuf.Value> query_result = 5;
+  google.protobuf.Timestamp query_time = 6;
+}
+
+message QueryMonitorStatusRequest {
+  string workflow_id = 1;
+  string run_id = 2;
+}
+
+message StepCountInfo {
+  int32 total = 1;
+  int32 pending = 2;
+  int32 running = 3;
+  int32 waiting = 4;
+  int32 completed = 5;
+  int32 failed = 6;
+  int32 skipped = 7;
+  int32 cancelled = 8;
+}
+
+message WorkflowProgressInfo {
+  int32 current_step = 1;
+  int32 total_steps = 2;
+  double percentage = 3;
+}
+
+message StepMonitorInfo {
+  int32 index = 1;
+  string name = 2;
+  string step_type = 3;
+  string status = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  int64 duration_ms = 7;
+  string error = 8;
+  string wait_reason = 9;
+  map<string, google.protobuf.Value> wait_info = 10;
+}
+
+message QueryMonitorStatusResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  string status = 4;
+  google.protobuf.Timestamp start_time = 5;
+  int64 elapsed_ms = 6;
+  WorkflowProgressInfo progress = 7;
+  StepCountInfo step_counts = 8;
+  repeated StepMonitorInfo steps = 9;
+  string last_error = 10;
+}
+
+message QueryTraceRequest {
+  string workflow_id = 1;
+  string run_id = 2;
+}
+
+message QueryTraceResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  repeated TraceEntry entries = 4;
+}
+
+// ============================================================
+// Lifecycle (Cancel, Signal, Terminate, Pause, Resume)
+// ============================================================
+
+message CancelWorkflowRequest {
+  string workflow_id = 1;
+  string reason = 2;
+}
+
+message CancelWorkflowResponse {
+  string workflow_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message SignalWorkflowRequest {
+  string workflow_id = 1;
+  string signal_name = 2;
+  map<string, google.protobuf.Value> signal_data = 3;
+  string run_id = 4;
+}
+
+message SignalWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+}
+
+message TerminateWorkflowRequest {
+  string workflow_id = 1;
+  string reason = 2;
+  map<string, google.protobuf.Value> details = 3;
+  string run_id = 4;
+}
+
+message TerminateWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+}
+
+message PauseWorkflowRequest {
+  string workflow_id = 1;
+  string run_id = 2;
+  string reason = 3;
+}
+
+message PauseWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+}
+
+message ResumeWorkflowRequest {
+  string workflow_id = 1;
+  string run_id = 2;
+  string reason = 3;
+}
+
+message ResumeWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+  string workflow_id = 3;
+  string run_id = 4;
+}
+
+// ============================================================
+// Validate
+// ============================================================
+
+message ValidateWorkflowRequest {
+  Workflow workflow = 1;
+  Configuration config = 2;
+}
+
+message ValidateWorkflowResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+  repeated string warnings = 3;
+}

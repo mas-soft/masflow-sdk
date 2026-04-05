@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
-	pb "github.com/mas-soft/masflow/sdk/internal/activitypb/activity"
-	pbconnect "github.com/mas-soft/masflow/sdk/internal/activitypb/activity/activityconnect"
+	pb "github.com/mas-soft/masflow/sdk/internal/pb/activity"
+	pbconnect "github.com/mas-soft/masflow/sdk/internal/pb/activity/activityconnect"
 )
 
 // Client communicates with the masflow platform's ModuleRegistry service.

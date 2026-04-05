@@ -18,6 +18,7 @@ type runnerConfig struct {
 	temporalNamespace string
 	temporalClient    client.Client // nil = create one from address/namespace
 	platformURL       string        // empty = skip platform registration
+	workflowURL       string        // empty = no WorkflowClient created
 	logger            *slog.Logger
 	shutdownTimeout   time.Duration
 	workerOptions     worker.Options
@@ -81,4 +82,11 @@ func WithHTTPClient(hc *http.Client) RunnerOption {
 // WithConnectOptions adds Connect client options for platform registration.
 func WithConnectOptions(opts ...connect.ClientOption) RunnerOption {
 	return func(c *runnerConfig) { c.connectOptions = append(c.connectOptions, opts...) }
+}
+
+// WithWorkflowURL sets the masflow platform URL for the WorkflowClient.
+// When set, Runner.Workflows() returns a WorkflowClient for executing
+// and managing workflows. If not set, Runner.Workflows() returns nil.
+func WithWorkflowURL(url string) RunnerOption {
+	return func(c *runnerConfig) { c.workflowURL = url }
 }

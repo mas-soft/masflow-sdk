@@ -1249,7 +1249,7 @@ const file_activity_activity_proto_rawDesc = "" +
 	"\x0eListActivities\x12\x1f.activity.ListActivitiesRequest\x1a .activity.ListActivitiesResponse\x12J\n" +
 	"\vGetActivity\x12\x1c.activity.GetActivityRequest\x1a\x1d.activity.GetActivityResponse2b\n" +
 	"\x10ActivityExecutor\x12N\n" +
-	"\aExecute\x12 .activity.ExecuteActivityRequest\x1a!.activity.ExecuteActivityResponseB>Z<github.com/mas-soft/masflow/sdk/internal/activitypb/activityb\x06proto3"
+	"\aExecute\x12 .activity.ExecuteActivityRequest\x1a!.activity.ExecuteActivityResponseB6Z4github.com/mas-soft/masflow/sdk/internal/pb/activityb\x06proto3"
 
 var (
 	file_activity_activity_proto_rawDescOnce sync.Once
