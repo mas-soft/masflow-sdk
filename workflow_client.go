@@ -17,6 +17,7 @@ import (
 type WorkflowClient struct {
 	client  pbconnect.WorkflowServiceClient
 	baseURL string
+	useGRPC bool
 }
 
 // WorkflowClientOption configures a WorkflowClient.
@@ -25,7 +26,7 @@ type WorkflowClientOption func(*workflowClientConfig)
 type workflowClientConfig struct {
 	httpClient     *http.Client
 	connectOptions []connect.ClientOption
-	useGRPC        bool
+	protocol       protocolMode
 }
 
 // WithWorkflowHTTPClient sets the HTTP client for the workflow client.
@@ -38,30 +39,38 @@ func WithWorkflowConnectOptions(opts ...connect.ClientOption) WorkflowClientOpti
 	return func(cfg *workflowClientConfig) { cfg.connectOptions = append(cfg.connectOptions, opts...) }
 }
 
-// WithWorkflowConnect configures the workflow client to use Connect protocol
-// over HTTP/1.1 instead of the default gRPC (HTTP/2).
+// WithWorkflowConnect configures the workflow client to use Connect protocol over HTTP/1.1.
+// By default, the client chooses Connect for http:// URLs and gRPC for https:// URLs.
 func WithWorkflowConnect() WorkflowClientOption {
-	return func(cfg *workflowClientConfig) { cfg.useGRPC = false }
+	return func(cfg *workflowClientConfig) { cfg.protocol = protocolConnect }
+}
+
+// WithWorkflowGRPC configures the workflow client to use gRPC transport.
+// This is mainly useful for plaintext h2c endpoints where you want to force gRPC over HTTP/2.
+func WithWorkflowGRPC() WorkflowClientOption {
+	return func(cfg *workflowClientConfig) { cfg.protocol = protocolGRPC }
 }
 
 // NewWorkflowClient creates a workflow client connected to the Masflow platform.
 func NewWorkflowClient(baseURL string, opts ...WorkflowClientOption) *WorkflowClient {
 	cfg := &workflowClientConfig{
 		httpClient: http.DefaultClient,
-		useGRPC:    true, // gRPC over HTTP/2 by default
+		protocol:   protocolAuto,
 	}
 	for _, opt := range opts {
 		opt(cfg)
 	}
-	if cfg.useGRPC {
+	useGRPC := shouldUseGRPC(baseURL, cfg.protocol)
+	if useGRPC {
 		cfg.connectOptions = append(cfg.connectOptions, connect.WithGRPC())
-		if cfg.httpClient == http.DefaultClient {
+		if usesPlaintextHTTP(baseURL) && cfg.httpClient == http.DefaultClient {
 			cfg.httpClient = newH2CClient()
 		}
 	}
 	return &WorkflowClient{
 		client:  pbconnect.NewWorkflowServiceClient(cfg.httpClient, baseURL, cfg.connectOptions...),
 		baseURL: baseURL,
+		useGRPC: useGRPC,
 	}
 }
 
@@ -100,7 +109,7 @@ func (c *WorkflowClient) ExecuteDeclaration(ctx context.Context, declarationID s
 
 	resp, err := c.client.ExecuteWorkflowDeclaration(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("execute workflow declaration", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -142,7 +151,7 @@ func (c *WorkflowClient) executeSource(ctx context.Context, source string, forma
 
 	resp, err := c.client.ExecuteWorkflowSource(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("execute workflow source", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -163,7 +172,7 @@ func (c *WorkflowClient) GetStatus(ctx context.Context, workflowID string) (*Wor
 		WorkflowId: workflowID,
 	}))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("get workflow status", err)
 	}
 	msg := resp.Msg
 	result := &WorkflowStatusResult{
@@ -183,7 +192,7 @@ func (c *WorkflowClient) Describe(ctx context.Context, workflowID, runID string)
 		RunId:      runID,
 	}))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("describe workflow", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -239,7 +248,7 @@ func (c *WorkflowClient) List(ctx context.Context, opts *ListWorkflowsOptions) (
 	}
 	resp, err := c.client.ListWorkflows(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("list workflows", err)
 	}
 	msg := resp.Msg
 	result := &ListWorkflowsResult{
@@ -279,7 +288,7 @@ func (c *WorkflowClient) Search(ctx context.Context, opts *SearchWorkflowsOption
 	}
 	resp, err := c.client.SearchWorkflows(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("search workflows", err)
 	}
 	msg := resp.Msg
 	result := &SearchResult{
@@ -321,7 +330,7 @@ func (c *WorkflowClient) Query(ctx context.Context, workflowID, queryType string
 	}
 	resp, err := c.client.QueryWorkflow(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("query workflow", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -342,7 +351,7 @@ func (c *WorkflowClient) Monitor(ctx context.Context, workflowID, runID string) 
 		RunId:      runID,
 	}))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("monitor workflow", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -389,7 +398,7 @@ func (c *WorkflowClient) Trace(ctx context.Context, workflowID, runID string) ([
 		RunId:      runID,
 	}))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("query trace", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -411,7 +420,7 @@ func (c *WorkflowClient) Cancel(ctx context.Context, workflowID, reason string) 
 		Reason:     reason,
 	}))
 	if err != nil {
-		return err
+		return c.rpcError("cancel workflow", err)
 	}
 	if resp.Msg.GetError() != "" {
 		return fmt.Errorf("cancel workflow: %s", resp.Msg.GetError())
@@ -434,7 +443,7 @@ func (c *WorkflowClient) Signal(ctx context.Context, workflowID, signalName stri
 	}
 	resp, err := c.client.SignalWorkflow(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("signal workflow", err)
 	}
 	msg := resp.Msg
 	if msg.GetError() != "" {
@@ -453,7 +462,7 @@ func (c *WorkflowClient) Terminate(ctx context.Context, workflowID, reason strin
 		Reason:     reason,
 	}))
 	if err != nil {
-		return err
+		return c.rpcError("terminate workflow", err)
 	}
 	if resp.Msg.GetError() != "" {
 		return fmt.Errorf("terminate workflow: %s", resp.Msg.GetError())
@@ -469,7 +478,7 @@ func (c *WorkflowClient) Pause(ctx context.Context, workflowID, runID, reason st
 		Reason:     reason,
 	}))
 	if err != nil {
-		return err
+		return c.rpcError("pause workflow", err)
 	}
 	if resp.Msg.GetError() != "" {
 		return fmt.Errorf("pause workflow: %s", resp.Msg.GetError())
@@ -485,7 +494,7 @@ func (c *WorkflowClient) Resume(ctx context.Context, workflowID, runID, reason s
 		Reason:     reason,
 	}))
 	if err != nil {
-		return err
+		return c.rpcError("resume workflow", err)
 	}
 	if resp.Msg.GetError() != "" {
 		return fmt.Errorf("resume workflow: %s", resp.Msg.GetError())
@@ -504,7 +513,7 @@ func (c *WorkflowClient) Validate(ctx context.Context, yaml string) (*ValidateRe
 		Workflow: &pb.Workflow{Name: yaml},
 	}))
 	if err != nil {
-		return nil, err
+		return nil, c.rpcError("validate workflow", err)
 	}
 	msg := resp.Msg
 	return &ValidateResult{
@@ -528,12 +537,12 @@ var statusMap = map[pb.WorkflowStatus]WorkflowStatus{
 
 var statusReverseMap = map[WorkflowStatus]pb.WorkflowStatus{
 	WorkflowStatusUnspecified: pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED,
-	WorkflowStatusPending:    pb.WorkflowStatus_WORKFLOW_STATUS_PENDING,
-	WorkflowStatusRunning:    pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING,
-	WorkflowStatusCompleted:  pb.WorkflowStatus_WORKFLOW_STATUS_COMPLETED,
-	WorkflowStatusFailed:     pb.WorkflowStatus_WORKFLOW_STATUS_FAILED,
-	WorkflowStatusCancelled:  pb.WorkflowStatus_WORKFLOW_STATUS_CANCELLED,
-	WorkflowStatusPaused:     pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED,
+	WorkflowStatusPending:     pb.WorkflowStatus_WORKFLOW_STATUS_PENDING,
+	WorkflowStatusRunning:     pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING,
+	WorkflowStatusCompleted:   pb.WorkflowStatus_WORKFLOW_STATUS_COMPLETED,
+	WorkflowStatusFailed:      pb.WorkflowStatus_WORKFLOW_STATUS_FAILED,
+	WorkflowStatusCancelled:   pb.WorkflowStatus_WORKFLOW_STATUS_CANCELLED,
+	WorkflowStatusPaused:      pb.WorkflowStatus_WORKFLOW_STATUS_PAUSED,
 }
 
 func toStatus(s pb.WorkflowStatus) WorkflowStatus {
@@ -591,4 +600,14 @@ func fromValueMap(m map[string]*structpb.Value) map[string]any {
 		result[k] = v.AsInterface()
 	}
 	return result
+}
+
+func (c *WorkflowClient) rpcError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if c.baseURL == "" {
+		return fmt.Errorf("%s: %w", operation, err)
+	}
+	return fmt.Errorf("%s via %s: %w", operation, c.baseURL, err)
 }

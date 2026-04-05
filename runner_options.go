@@ -20,7 +20,7 @@ type runnerConfig struct {
 	workerOptions   worker.Options
 	httpClient      *http.Client
 	connectOptions  []connect.ClientOption
-	useGRPC         bool // use gRPC (HTTP/2) instead of Connect (HTTP/1.1)
+	protocol        protocolMode
 }
 
 func defaultConfig() *runnerConfig {
@@ -28,7 +28,7 @@ func defaultConfig() *runnerConfig {
 		shutdownTimeout: 30 * time.Second,
 		logger:          slog.Default(),
 		httpClient:      http.DefaultClient,
-		useGRPC:         true, // gRPC over HTTP/2 by default
+		protocol:        protocolAuto,
 	}
 }
 
@@ -70,9 +70,14 @@ func WithWorkflowURL(url string) RunnerOption {
 	return func(c *runnerConfig) { c.workflowURL = url }
 }
 
-// WithConnect configures the runner to use Connect protocol over HTTP/1.1
-// instead of the default gRPC (HTTP/2). Connect uses standard HTTP semantics
-// and works with any proxy or load balancer without special HTTP/2 support.
+// WithConnect configures the runner to use Connect protocol over HTTP/1.1.
+// By default, the runner chooses Connect for http:// URLs and gRPC for https:// URLs.
 func WithConnect() RunnerOption {
-	return func(c *runnerConfig) { c.useGRPC = false }
+	return func(c *runnerConfig) { c.protocol = protocolConnect }
+}
+
+// WithGRPC configures the runner to use gRPC transport.
+// This is mainly useful for plaintext h2c endpoints where you want to force gRPC over HTTP/2.
+func WithGRPC() RunnerOption {
+	return func(c *runnerConfig) { c.protocol = protocolGRPC }
 }

@@ -4,7 +4,7 @@
 // The SDK decouples module development from the Masflow server codebase.
 // It provides type-safe activity registration with Go generics, automatic
 // JSON Schema generation, Temporal worker lifecycle management, and
-// platform registration via Connect/gRPC.
+// platform registration via Connect/gRPC with automatic protocol selection.
 //
 // # Quick Start
 //
@@ -23,6 +23,9 @@
 //	    masflowsdk.WithPlatformURL("http://localhost:9999"),
 //	)
 //	runner.Run(context.Background())
+//
+// Plain http:// platform URLs default to Connect over HTTP/1.1.
+// Use [WithGRPC] to force gRPC over plaintext h2c when your server supports it.
 //
 // # Handler Types
 //

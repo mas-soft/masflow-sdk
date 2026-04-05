@@ -5,9 +5,43 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
+	"net/url"
 
 	"golang.org/x/net/http2"
 )
+
+type protocolMode uint8
+
+const (
+	protocolAuto protocolMode = iota
+	protocolConnect
+	protocolGRPC
+)
+
+func shouldUseGRPC(baseURL string, mode protocolMode) bool {
+	switch mode {
+	case protocolConnect:
+		return false
+	case protocolGRPC:
+		return true
+	}
+
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return true
+	}
+
+	return parsed.Scheme != "http"
+}
+
+func usesPlaintextHTTP(baseURL string) bool {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+
+	return parsed.Scheme == "http"
+}
 
 // newH2CClient returns an [http.Client] that speaks HTTP/2 over cleartext (h2c).
 // This is required for gRPC over plaintext (http://) connections because Go's

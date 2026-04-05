@@ -7,7 +7,7 @@ The Masflow SDK is a standalone Go module that lets you create custom activity m
 - Type-safe activity registration with Go generics
 - Automatic JSON Schema generation from Go structs
 - Built-in Temporal worker lifecycle management
-- Automatic platform registration via Connect/gRPC
+- Automatic platform registration via Connect/gRPC with URL-based protocol selection
 - Graceful shutdown with signal handling
 - Workflow execution, monitoring, and lifecycle management
 
@@ -38,6 +38,7 @@ go get github.com/mas-soft/masflow/sdk@latest
 ```
 
 **Requirements:**
+
 - Go 1.25+
 - A running Masflow platform instance (provides Temporal connection details during module registration)
 
@@ -104,6 +105,8 @@ func main() {
 ```
 
 That's it. The platform provides Temporal connection details during registration. The SDK handles worker lifecycle, JSON Schema generation, platform registration, and graceful shutdown.
+
+For transport selection, plain `http://` URLs default to Connect over HTTP/1.1 and `https://` URLs default to gRPC. Use `WithGRPC()` only when you need to force plaintext h2c gRPC.
 
 ---
 
@@ -182,15 +185,15 @@ mod := sdk.NewModule("notifications",
 
 ### Module Options
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `WithModuleDescription(string)` | No | Human-readable description shown in the Masflow UI |
-| `WithModuleVersion(string)` | No | Semantic version for tracking deployments |
-| `WithModuleIcon(string)` | No | Icon identifier (e.g., Lucide icon name) for UI display |
-| `WithModuleTaskQueue(string)` | **Yes** | Temporal task queue name -- must be unique per module |
-| `WithModuleAuthor(string)` | No | Author or team name |
-| `WithModuleCategory(string)` | No | Top-level classification (e.g., "notifications", "payments") |
-| `WithModuleTags(string...)` | No | Searchable tags for filtering and discovery |
+| Option                          | Required | Description                                                  |
+| ------------------------------- | -------- | ------------------------------------------------------------ |
+| `WithModuleDescription(string)` | No       | Human-readable description shown in the Masflow UI           |
+| `WithModuleVersion(string)`     | No       | Semantic version for tracking deployments                    |
+| `WithModuleIcon(string)`        | No       | Icon identifier (e.g., Lucide icon name) for UI display      |
+| `WithModuleTaskQueue(string)`   | **Yes**  | Temporal task queue name -- must be unique per module        |
+| `WithModuleAuthor(string)`      | No       | Author or team name                                          |
+| `WithModuleCategory(string)`    | No       | Top-level classification (e.g., "notifications", "payments") |
+| `WithModuleTags(string...)`     | No       | Searchable tags for filtering and discovery                  |
 
 > **Task Queue Naming:** Choose a descriptive, unique name like `{module}-task-queue`. All activities in the module share this queue by default. Individual activities can override it with `WithTaskQueue`.
 
@@ -221,6 +224,7 @@ type SendEmailOutput struct {
 ```
 
 **Best practices for types:**
+
 - Use `json` tags on all fields -- these become the wire format
 - Use `omitempty` for optional fields
 - Use basic types: `string`, `int`, `float64`, `bool`, `[]T`, `map[string]T`
@@ -314,14 +318,14 @@ The workflow pauses at this step until the external system sends a signal via Te
 
 ### Activity Options
 
-| Option | Description |
-|--------|-------------|
-| `WithDescription(string)` | Human-readable description for UI and docs |
-| `WithIcon(string)` | Icon identifier for visual representation |
-| `WithCategory(string)` | Classification (e.g., "email", "database", "ai") |
-| `WithTags(string...)` | Searchable tags for filtering |
-| `WithTaskQueue(string)` | Override the module's default task queue |
-| `WithDocumentationURL(string)` | Link to external activity documentation |
+| Option                         | Description                                      |
+| ------------------------------ | ------------------------------------------------ |
+| `WithDescription(string)`      | Human-readable description for UI and docs       |
+| `WithIcon(string)`             | Icon identifier for visual representation        |
+| `WithCategory(string)`         | Classification (e.g., "email", "database", "ai") |
+| `WithTags(string...)`          | Searchable tags for filtering                    |
+| `WithTaskQueue(string)`        | Override the module's default task queue         |
+| `WithDocumentationURL(string)` | Link to external activity documentation          |
 
 ---
 
@@ -347,6 +351,7 @@ if err := runner.Run(context.Background()); err != nil {
 ```
 
 `Runner.Run()` performs these steps:
+
 1. Registers the module with the Masflow platform
 2. Receives Temporal address and namespace from the platform
 3. Connects to Temporal using the platform-provided config
@@ -375,15 +380,15 @@ runner.Stop(context.Background())
 
 ### Runner Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `WithPlatformURL(string)` | — | **Required.** Masflow platform URL. The platform provides Temporal connection details during registration |
-| `WithWorkflowURL(string)` | — | Masflow platform URL for WorkflowClient. Enables `runner.Workflows()` |
-| `WithLogger(*slog.Logger)` | `slog.Default()` | Structured logger |
-| `WithShutdownTimeout(time.Duration)` | `30s` | Max time for graceful shutdown |
-| `WithWorkerOptions(worker.Options)` | — | Pass-through Temporal worker options (concurrency, rate limits, etc.) |
-| `WithHTTPClient(*http.Client)` | `http.DefaultClient` | HTTP client for platform communication |
-| `WithConnectOptions(...connect.ClientOption)` | — | Connect client options for platform communication |
+| Option                                        | Default              | Description                                                                                               |
+| --------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `WithPlatformURL(string)`                     | —                    | **Required.** Masflow platform URL. The platform provides Temporal connection details during registration |
+| `WithWorkflowURL(string)`                     | —                    | Masflow platform URL for WorkflowClient. Enables `runner.Workflows()`                                     |
+| `WithLogger(*slog.Logger)`                    | `slog.Default()`     | Structured logger                                                                                         |
+| `WithShutdownTimeout(time.Duration)`          | `30s`                | Max time for graceful shutdown                                                                            |
+| `WithWorkerOptions(worker.Options)`           | —                    | Pass-through Temporal worker options (concurrency, rate limits, etc.)                                     |
+| `WithHTTPClient(*http.Client)`                | `http.DefaultClient` | HTTP client for platform communication                                                                    |
+| `WithConnectOptions(...connect.ClientOption)` | —                    | Connect client options for platform communication                                                         |
 
 > **Note:** Temporal address and namespace are not configurable by third-party modules. The platform is the single source of truth for these values and returns them during module registration.
 
@@ -473,12 +478,12 @@ sdk/
 
 The SDK depends only on:
 
-| Dependency | Purpose |
-|------------|---------|
-| `go.temporal.io/sdk` | Temporal worker and activity registration |
-| `connectrpc.com/connect` | Connect/gRPC client for platform registration |
-| `google.golang.org/protobuf` | Protobuf serialization for platform protocol |
-| `github.com/invopop/jsonschema` | JSON Schema generation from Go types |
+| Dependency                      | Purpose                                       |
+| ------------------------------- | --------------------------------------------- |
+| `go.temporal.io/sdk`            | Temporal worker and activity registration     |
+| `connectrpc.com/connect`        | Connect/gRPC client for platform registration |
+| `google.golang.org/protobuf`    | Protobuf serialization for platform protocol  |
+| `github.com/invopop/jsonschema` | JSON Schema generation from Go types          |
 
 It has **zero dependency** on the Masflow server codebase (`github.com/mas-soft/masflow`).
 
@@ -487,6 +492,7 @@ It has **zero dependency** on the Masflow server codebase (`github.com/mas-soft/
 The SDK includes a vendored copy of the `activity.proto` and `workflow.proto` contracts from the server. These define the `ModuleRegistry` and `WorkflowService` gRPC services. The generated code is placed in `internal/pb/` so it is not exposed to SDK consumers.
 
 To regenerate after a proto change:
+
 ```bash
 cd sdk && make generate
 ```
@@ -692,24 +698,24 @@ for _, w := range result.Warnings {
 
 ### WorkflowClient API Summary
 
-| Method | Description |
-|--------|-------------|
-| `ExecuteYAML(ctx, yaml, opts)` | Execute workflow from YAML source |
-| `ExecuteJSON(ctx, json, opts)` | Execute workflow from JSON source |
-| `ExecuteDeclaration(ctx, id, opts)` | Execute a saved workflow declaration |
-| `GetStatus(ctx, workflowID)` | Get workflow status and trace |
-| `Describe(ctx, workflowID, runID)` | Get detailed workflow execution info |
-| `List(ctx, opts)` | List workflows with filters and pagination |
-| `Search(ctx, opts)` | Advanced search with facets |
-| `Query(ctx, workflowID, queryType, args)` | Send a query to a running workflow |
-| `Monitor(ctx, workflowID, runID)` | Get real-time step-level monitoring data |
-| `Trace(ctx, workflowID, runID)` | Get BPM execution trace |
-| `Cancel(ctx, workflowID, reason)` | Request cooperative cancellation |
-| `Signal(ctx, workflowID, signalName, data)` | Send a signal to a workflow |
-| `Terminate(ctx, workflowID, reason)` | Forcefully terminate a workflow |
-| `Pause(ctx, workflowID, runID, reason)` | Pause a running workflow |
-| `Resume(ctx, workflowID, runID, reason)` | Resume a paused workflow |
-| `Validate(ctx, yaml)` | Validate workflow YAML without executing |
+| Method                                      | Description                                |
+| ------------------------------------------- | ------------------------------------------ |
+| `ExecuteYAML(ctx, yaml, opts)`              | Execute workflow from YAML source          |
+| `ExecuteJSON(ctx, json, opts)`              | Execute workflow from JSON source          |
+| `ExecuteDeclaration(ctx, id, opts)`         | Execute a saved workflow declaration       |
+| `GetStatus(ctx, workflowID)`                | Get workflow status and trace              |
+| `Describe(ctx, workflowID, runID)`          | Get detailed workflow execution info       |
+| `List(ctx, opts)`                           | List workflows with filters and pagination |
+| `Search(ctx, opts)`                         | Advanced search with facets                |
+| `Query(ctx, workflowID, queryType, args)`   | Send a query to a running workflow         |
+| `Monitor(ctx, workflowID, runID)`           | Get real-time step-level monitoring data   |
+| `Trace(ctx, workflowID, runID)`             | Get BPM execution trace                    |
+| `Cancel(ctx, workflowID, reason)`           | Request cooperative cancellation           |
+| `Signal(ctx, workflowID, signalName, data)` | Send a signal to a workflow                |
+| `Terminate(ctx, workflowID, reason)`        | Forcefully terminate a workflow            |
+| `Pause(ctx, workflowID, runID, reason)`     | Pause a running workflow                   |
+| `Resume(ctx, workflowID, runID, reason)`    | Resume a paused workflow                   |
+| `Validate(ctx, yaml)`                       | Validate workflow YAML without executing   |
 
 ---
 
@@ -764,8 +770,8 @@ steps:
 
 These are commonly set when deploying a module service:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable               | Description                       | Default      |
+| ---------------------- | --------------------------------- | ------------ |
 | `MASFLOW_PLATFORM_URL` | Masflow platform Connect endpoint | — (required) |
 
 > **Note:** Temporal address and namespace are not configured by modules. The platform provides these during registration.
@@ -813,6 +819,7 @@ services:
 ### "platform URL is required"
 
 `WithPlatformURL` is required when creating a Runner. The platform provides Temporal connection details during registration:
+
 ```go
 sdk.NewRunner(mod, sdk.WithPlatformURL("http://localhost:9999"))
 ```
@@ -820,6 +827,7 @@ sdk.NewRunner(mod, sdk.WithPlatformURL("http://localhost:9999"))
 ### "failed to register with masflow platform"
 
 The platform is not reachable. This is fatal — the module cannot start without platform registration. Verify:
+
 - Platform URL is correct
 - Platform service is running
 - Network/firewall rules allow the connection
@@ -827,6 +835,7 @@ The platform is not reachable. This is fatal — the module cannot start without
 ### "failed to connect to Temporal"
 
 The Temporal server address returned by the platform is not reachable. This is a platform-side configuration issue. Verify:
+
 - Temporal is running
 - The platform's Temporal configuration is correct
 - Network between your module and Temporal allows the connection
@@ -834,6 +843,7 @@ The Temporal server address returned by the platform is not reachable. This is a
 ### "module task queue is required"
 
 You must set a task queue when creating the module:
+
 ```go
 sdk.NewModule("my-module", sdk.WithModuleTaskQueue("my-task-queue"))
 ```

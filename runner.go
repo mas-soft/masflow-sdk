@@ -2,6 +2,7 @@ package masflowsdk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -53,10 +54,12 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 		return nil, fmt.Errorf("platform URL is required (use WithPlatformURL)")
 	}
 
+	useGRPC := shouldUseGRPC(cfg.platformURL, cfg.protocol)
+
 	// When gRPC mode is enabled, configure h2c transport and gRPC connect option.
-	if cfg.useGRPC {
+	if useGRPC {
 		cfg.connectOptions = append(cfg.connectOptions, connect.WithGRPC())
-		if cfg.httpClient == nil || cfg.httpClient == http.DefaultClient {
+		if usesPlaintextHTTP(cfg.platformURL) && (cfg.httpClient == nil || cfg.httpClient == http.DefaultClient) {
 			cfg.httpClient = newH2CClient()
 		}
 	}
@@ -72,6 +75,11 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 		wcOpts := []WorkflowClientOption{
 			WithWorkflowHTTPClient(cfg.httpClient),
 			WithWorkflowConnectOptions(cfg.connectOptions...),
+		}
+		if !shouldUseGRPC(cfg.workflowURL, cfg.protocol) {
+			wcOpts = append(wcOpts, WithWorkflowConnect())
+		} else {
+			wcOpts = append(wcOpts, WithWorkflowGRPC())
 		}
 		r.workflowClient = NewWorkflowClient(cfg.workflowURL, wcOpts...)
 	}
@@ -108,6 +116,10 @@ func (r *Runner) Run(ctx context.Context) error {
 // connects to Temporal, and starts the worker.
 // Call Stop() to shut down. For a blocking version, use Run().
 func (r *Runner) Start(ctx context.Context) error {
+	if r.temporalClient != nil || r.worker != nil || r.registered {
+		return fmt.Errorf("runner already started")
+	}
+
 	// 1. Register with platform — get Temporal connection details
 	r.platformClient = platform.NewClient(
 		r.config.platformURL,
@@ -147,11 +159,18 @@ func (r *Runner) Start(ctx context.Context) error {
 
 	// 3. Create and start the Temporal worker
 	r.worker = worker.New(r.temporalClient, r.module.TaskQueue, r.config.workerOptions)
-	RegisterAll(r.worker, r.module)
+	if err := RegisterAll(r.worker, r.module); err != nil {
+		r.temporalClient.Close()
+		r.temporalClient = nil
+		r.worker = nil
+		return fmt.Errorf("register module activities: %w", err)
+	}
 
 	if err := r.worker.Start(); err != nil {
 		r.temporalClient.Close()
-		return fmt.Errorf("failed to start Temporal worker: %w", err)
+		r.temporalClient = nil
+		r.worker = nil
+		return fmt.Errorf("start Temporal worker: %w", err)
 	}
 	r.logger.Info("Temporal worker started",
 		"module", r.module.Name,
@@ -174,22 +193,40 @@ func (r *Runner) Stop(ctx context.Context) error {
 			r.logger.Info("Unregistered from masflow platform", "module", r.module.Name)
 		}
 		r.registered = false
+		r.platformClient = nil
 	}
 
 	// Stop worker
 	if r.worker != nil {
-		r.worker.Stop()
-		r.logger.Info("Temporal worker stopped")
+		if err := stopWorker(r.worker); err != nil {
+			r.logger.Warn("Failed to stop Temporal worker cleanly", "error", err)
+			errs = append(errs, fmt.Errorf("stop worker: %w", err))
+		} else {
+			r.logger.Info("Temporal worker stopped")
+		}
+		r.worker = nil
 	}
 
 	// Close Temporal client
 	if r.temporalClient != nil {
 		r.temporalClient.Close()
 		r.logger.Info("Temporal client closed")
+		r.temporalClient = nil
 	}
 
 	if len(errs) > 0 {
-		return errs[0]
+		return errors.Join(errs...)
 	}
+	return nil
+}
+
+func stopWorker(w worker.Worker) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("panic while stopping worker: %v", recovered)
+		}
+	}()
+
+	w.Stop()
 	return nil
 }

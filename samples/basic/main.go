@@ -52,7 +52,7 @@ func Greet(_ context.Context, in GreetInput) (GreetOutput, error) {
 
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
-	execute := flag.Bool("execute", false, "Execute a sample greeting workflow after starting the worker")
+	execute := flag.Bool("execute", true, "Execute a sample greeting workflow after starting the worker")
 	name := flag.String("name", "World", "Name to greet (used with --execute)")
 	flag.Parse()
 
