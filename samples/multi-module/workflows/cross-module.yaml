@@ -12,6 +12,7 @@ steps:
     type: activity
     activity:
       type: trackEvent
+      task_queue: analytics-task-queue
       args:
         event_name: "user_signup"
         user_id: "${user_id}"
@@ -24,6 +25,7 @@ steps:
     type: activity
     activity:
       type: renderTemplate
+      task_queue: email-task-queue
       args:
         template_name: "welcome"
         variables:
@@ -36,6 +38,7 @@ steps:
     type: activity
     activity:
       type: sendEmail
+      task_queue: email-task-queue
       args:
         to: "${user_email}"
         subject: "Welcome, ${user_name}!"
@@ -47,6 +50,7 @@ steps:
     type: activity
     activity:
       type: trackEvent
+      task_queue: analytics-task-queue
       args:
         event_name: "welcome_email_sent"
         user_id: "${user_id}"

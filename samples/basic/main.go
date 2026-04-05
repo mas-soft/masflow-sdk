@@ -1,7 +1,7 @@
 // Basic example -- the simplest possible Masflow module.
 //
 // This registers a single "greet" activity, runs the worker, and optionally
-// executes a workflow to demonstrate the full round-trip.
+// executes a workflow from the checked-in sample file to demonstrate the full round-trip.
 //
 //	# Worker only:
 //	go run . --platform=http://localhost:9999
@@ -53,6 +53,7 @@ func Greet(_ context.Context, in GreetInput) (GreetOutput, error) {
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	execute := flag.Bool("execute", true, "Execute a sample greeting workflow after starting the worker")
+	yamlFile := flag.String("yaml", "workflows/greeting.yaml", "Path to workflow YAML file (used with --execute)")
 	name := flag.String("name", "World", "Name to greet (used with --execute)")
 	flag.Parse()
 
@@ -98,7 +99,7 @@ func main() {
 		// Give the worker a moment to be ready
 		time.Sleep(2 * time.Second)
 
-		executeGreetingWorkflow(runner.Workflows(), logger, *name)
+		executeGreetingWorkflow(runner.Workflows(), logger, *yamlFile, *name)
 
 		// Block until signal
 		logger.Info("Worker still running. Press Ctrl+C to stop.")
@@ -113,7 +114,7 @@ func main() {
 
 // executeGreetingWorkflow demonstrates executing a workflow using the SDK's
 // WorkflowClient, then polling for its status.
-func executeGreetingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, name string) {
+func executeGreetingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile, name string) {
 	if wc == nil {
 		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
 		return
@@ -122,25 +123,21 @@ func executeGreetingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, name s
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// ── Execute workflow from inline YAML ────────────────────────────
-	yaml := fmt.Sprintf(`name: greeting-workflow
-description: Greet a user
-variables:
-  name: "%s"
-steps:
-  - name: say-hello
-    activity:
-      type: greet
-      args:
-        name: "${name}"
-      ref: greeting
-`, name)
+	data, err := os.ReadFile(yamlFile)
+	if err != nil {
+		logger.Error("Failed to read workflow file", "file", yamlFile, "error", err)
+		return
+	}
+	yaml := string(data)
 
 	workflowID := fmt.Sprintf("greeting-%d", time.Now().Unix())
-	logger.Info("Executing greeting workflow", "workflow_id", workflowID, "name", name)
+	logger.Info("Executing greeting workflow", "workflow_id", workflowID, "name", name, "file", yamlFile)
 
 	result, err := wc.ExecuteYAML(ctx, yaml, &sdk.ExecuteSourceOptions{
 		WorkflowID: workflowID,
+		Variables: map[string]any{
+			"name": name,
+		},
 	})
 	if err != nil {
 		logger.Error("Failed to execute workflow", "error", err)

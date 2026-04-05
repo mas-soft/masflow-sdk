@@ -105,6 +105,7 @@ func Aggregate(_ context.Context, in AggregateInput) (AggregateOutput, error) {
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	execute := flag.Bool("execute", false, "Execute a cross-module onboarding workflow after starting workers")
+	yamlFile := flag.String("yaml", "workflows/cross-module.yaml", "Path to workflow YAML file (used with --execute)")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -181,7 +182,7 @@ func main() {
 		time.Sleep(2 * time.Second)
 
 		// Use the first runner's WorkflowClient to execute a cross-module workflow
-		executeOnboardingWorkflow(runners[0].Workflows(), logger)
+		executeOnboardingWorkflow(runners[0].Workflows(), logger, *yamlFile)
 
 		logger.Info("Workers still running. Press Ctrl+C to stop.")
 		<-ctx.Done()
@@ -222,7 +223,7 @@ func main() {
 
 // executeOnboardingWorkflow demonstrates a cross-module workflow that uses
 // activities from both the email and analytics modules.
-func executeOnboardingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger) {
+func executeOnboardingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile string) {
 	if wc == nil {
 		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
 		return
@@ -231,56 +232,15 @@ func executeOnboardingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	yaml := `name: user-onboarding
-description: Cross-module workflow using email and analytics activities
-
-variables:
-  user_id: "usr-42"
-  user_name: "Alice"
-  user_email: "alice@example.com"
-
-steps:
-  - name: track-signup
-    activity:
-      type: trackEvent
-      args:
-        event_name: "user_signup"
-        user_id: "${user_id}"
-        properties:
-          name: "${user_name}"
-      ref: signupEvent
-
-  - name: render-welcome
-    activity:
-      type: renderTemplate
-      args:
-        template_name: "welcome"
-        variables:
-          name: "${user_name}"
-          event_id: "${signupEvent.event_id}"
-      ref: rendered
-
-  - name: send-welcome
-    activity:
-      type: sendEmail
-      args:
-        to: "${user_email}"
-        subject: "Welcome, ${user_name}!"
-        body: "${rendered.rendered_html}"
-      ref: emailResult
-
-  - name: track-email-sent
-    activity:
-      type: trackEvent
-      args:
-        event_name: "welcome_email_sent"
-        user_id: "${user_id}"
-        properties:
-          message_id: "${emailResult.message_id}"
-`
+	data, err := os.ReadFile(yamlFile)
+	if err != nil {
+		logger.Error("Failed to read workflow file", "file", yamlFile, "error", err)
+		return
+	}
+	yaml := string(data)
 
 	workflowID := fmt.Sprintf("onboarding-%d", time.Now().Unix())
-	logger.Info("Executing cross-module onboarding workflow", "workflow_id", workflowID)
+	logger.Info("Executing cross-module onboarding workflow", "workflow_id", workflowID, "file", yamlFile)
 
 	result, err := wc.ExecuteYAML(ctx, yaml, &sdk.ExecuteSourceOptions{
 		WorkflowID: workflowID,

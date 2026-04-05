@@ -6,6 +6,7 @@ steps:
     type: activity
     activity:
       type: greet
+      task_queue: greeter-task-queue
       args:
         name: "World"
       ref: greeting
@@ -14,6 +15,7 @@ steps:
     type: activity
     activity:
       type: logNotification
+      task_queue: greeter-task-queue
       args:
         message: "Greeting sent: ${greeting.message}"
         level: "info"

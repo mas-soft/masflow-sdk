@@ -132,6 +132,7 @@ func NotifyComplete(_ context.Context, in NotifyInput) (NotifyOutput, error) {
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	execute := flag.Bool("execute", false, "Execute an approval workflow and auto-signal completion")
+	yamlFile := flag.String("yaml", "workflows/approval-flow.yaml", "Path to workflow YAML file (used with --execute)")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -190,7 +191,7 @@ func main() {
 		}
 
 		time.Sleep(2 * time.Second)
-		executeApprovalWorkflow(runner.Workflows(), logger)
+		executeApprovalWorkflow(runner.Workflows(), logger, *yamlFile)
 
 		logger.Info("Worker still running. Press Ctrl+C to stop.")
 		select {}
@@ -203,7 +204,7 @@ func main() {
 
 // executeApprovalWorkflow executes an expense approval workflow and demonstrates
 // signaling an async activity to simulate external approval.
-func executeApprovalWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger) {
+func executeApprovalWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile string) {
 	if wc == nil {
 		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
 		return
@@ -212,40 +213,15 @@ func executeApprovalWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	yaml := `name: expense-approval
-description: Submit expense for approval and notify on completion
-
-variables:
-  expense_id: "EXP-001"
-  amount: 250
-  submitter: "alice@example.com"
-  approver: "manager@example.com"
-
-steps:
-  - name: request-approval
-    activity:
-      type: requestApproval
-      args:
-        request_id: "${expense_id}"
-        title: "Expense approval: $${amount}"
-        description: "Expense #${expense_id} submitted by ${submitter}"
-        approver: "${approver}"
-        urgency: "normal"
-      ref: approval
-      async: true
-      callback_signal: "approval-decision"
-      callback_timeout: "72h"
-
-  - name: notify-submitter
-    activity:
-      type: notifyComplete
-      args:
-        message: "Your expense #${expense_id} has been processed (ticket: ${approval.ticket_id})"
-        channel: "email"
-`
+	data, err := os.ReadFile(yamlFile)
+	if err != nil {
+		logger.Error("Failed to read workflow file", "file", yamlFile, "error", err)
+		return
+	}
+	yaml := string(data)
 
 	workflowID := fmt.Sprintf("approval-%d", time.Now().Unix())
-	logger.Info("Executing approval workflow", "workflow_id", workflowID)
+	logger.Info("Executing approval workflow", "workflow_id", workflowID, "file", yamlFile)
 
 	result, err := wc.ExecuteYAML(ctx, yaml, &sdk.ExecuteSourceOptions{
 		WorkflowID: workflowID,

@@ -29,7 +29,7 @@ import (
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	execute := flag.Bool("execute", true, "Execute a sample notification workflow after starting the worker")
-	yamlFile := flag.String("yaml", "", "Path to workflow YAML file (used with --execute; defaults to inline example)")
+	yamlFile := flag.String("yaml", "workflows/order-notifications.yaml", "Path to workflow YAML file (used with --execute)")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -133,20 +133,13 @@ func executeNotificationWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, ya
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Load workflow YAML
-	var yaml string
-	if yamlFile != "" {
-		data, err := os.ReadFile(yamlFile)
-		if err != nil {
-			logger.Error("Failed to read workflow file", "file", yamlFile, "error", err)
-			return
-		}
-		yaml = string(data)
-		logger.Info("Loaded workflow from file", "file", yamlFile)
-	} else {
-		yaml = inlineNotificationWorkflow()
-		logger.Info("Using inline notification workflow")
+	data, err := os.ReadFile(yamlFile)
+	if err != nil {
+		logger.Error("Failed to read workflow file", "file", yamlFile, "error", err)
+		return
 	}
+	yaml := string(data)
+	logger.Info("Loaded workflow from file", "file", yamlFile)
 
 	// Execute
 	workflowID := fmt.Sprintf("notifications-%d", time.Now().Unix())
@@ -196,50 +189,6 @@ func executeNotificationWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, ya
 			"duration_ms", s.DurationMs,
 		)
 	}
-}
-
-func inlineNotificationWorkflow() string {
-	return `name: order-notifications
-description: Send multi-channel notifications when an order is placed
-
-variables:
-  customer_email: ""
-  customer_phone: ""
-  order_id: ""
-  order_total: 0
-
-steps:
-  - name: send-confirmation-email
-    activity:
-      type: sendEmail
-      args:
-        to: "${customer_email}"
-        subject: "Order ${order_id} confirmed"
-        body: "Thank you! Your order #${order_id} for $${order_total} has been confirmed."
-      ref: emailResult
-
-  - name: send-sms-confirmation
-    activity:
-      type: sendSMS
-      args:
-        phone_number: "${customer_phone}"
-        message: "Order #${order_id} confirmed. Total: $${order_total}"
-      ref: smsResult
-
-  - name: notify-ops-slack
-    activity:
-      type: sendSlack
-      args:
-        channel: "#orders"
-        message: "New order ${order_id} ($${order_total}) - email sent, sms sent"
-
-  - name: audit-log
-    activity:
-      type: logNotification
-      args:
-        message: "Order ${order_id} notifications sent"
-        level: "info"
-`
 }
 
 // pollWorkflowStatus polls a workflow until it completes, fails, or times out.

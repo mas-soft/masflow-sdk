@@ -9,6 +9,7 @@ steps:
     type: activity
     activity:
       type: greet
+      task_queue: greeter-task-queue
       args:
         name: "${name}"
       ref: greeting

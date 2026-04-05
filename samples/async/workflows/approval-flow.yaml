@@ -13,6 +13,7 @@ steps:
     type: activity
     activity:
       type: requestApproval
+      task_queue: approvals-task-queue
       args:
         request_id: "${expense_id}"
         title: "Expense approval: $${amount}"
@@ -29,6 +30,7 @@ steps:
     type: activity
     activity:
       type: notifyComplete
+      task_queue: approvals-task-queue
       args:
         message: "Your expense #${expense_id} has been processed (ticket: ${approval.ticket_id})"
         channel: "email"
