@@ -99,6 +99,8 @@ message RegisterModuleResponse {
   repeated string registered_activities = 2;
   string temporal_address = 3;
   string temporal_namespace = 4;
+  // True if an existing module with the same name was replaced.
+  bool replaced = 5;
 }
 
 message UnregisterModuleRequest {

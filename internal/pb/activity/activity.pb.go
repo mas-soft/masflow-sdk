@@ -517,8 +517,10 @@ type RegisterModuleResponse struct {
 	RegisteredActivities []string               `protobuf:"bytes,2,rep,name=registered_activities,json=registeredActivities,proto3" json:"registered_activities,omitempty"`
 	TemporalAddress      string                 `protobuf:"bytes,3,opt,name=temporal_address,json=temporalAddress,proto3" json:"temporal_address,omitempty"`
 	TemporalNamespace    string                 `protobuf:"bytes,4,opt,name=temporal_namespace,json=temporalNamespace,proto3" json:"temporal_namespace,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// True if an existing module with the same name was replaced.
+	Replaced      bool `protobuf:"varint,5,opt,name=replaced,proto3" json:"replaced,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterModuleResponse) Reset() {
@@ -577,6 +579,13 @@ func (x *RegisterModuleResponse) GetTemporalNamespace() string {
 		return x.TemporalNamespace
 	}
 	return ""
+}
+
+func (x *RegisterModuleResponse) GetReplaced() bool {
+	if x != nil {
+		return x.Replaced
+	}
+	return false
 }
 
 type UnregisterModuleRequest struct {
@@ -1211,13 +1220,14 @@ const file_activity_activity_proto_rawDesc = "" +
 	"\x0fcallback_signal\x18\x03 \x01(\tR\x0ecallbackSignal\x12)\n" +
 	"\x10callback_timeout\x18\x04 \x01(\tR\x0fcallbackTimeout\"A\n" +
 	"\x15RegisterModuleRequest\x12(\n" +
-	"\x06module\x18\x01 \x01(\v2\x10.activity.ModuleR\x06module\"\xc8\x01\n" +
+	"\x06module\x18\x01 \x01(\v2\x10.activity.ModuleR\x06module\"\xe4\x01\n" +
 	"\x16RegisterModuleResponse\x12\x1f\n" +
 	"\vmodule_name\x18\x01 \x01(\tR\n" +
 	"moduleName\x123\n" +
 	"\x15registered_activities\x18\x02 \x03(\tR\x14registeredActivities\x12)\n" +
 	"\x10temporal_address\x18\x03 \x01(\tR\x0ftemporalAddress\x12-\n" +
-	"\x12temporal_namespace\x18\x04 \x01(\tR\x11temporalNamespace\":\n" +
+	"\x12temporal_namespace\x18\x04 \x01(\tR\x11temporalNamespace\x12\x1a\n" +
+	"\breplaced\x18\x05 \x01(\bR\breplaced\":\n" +
 	"\x17UnregisterModuleRequest\x12\x1f\n" +
 	"\vmodule_name\x18\x01 \x01(\tR\n" +
 	"moduleName\"\x1a\n" +
