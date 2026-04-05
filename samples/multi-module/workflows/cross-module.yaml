@@ -1,0 +1,50 @@
+name: user-onboarding
+description: Cross-module workflow using email and analytics activities
+
+variables:
+  user_id: ""
+  user_name: ""
+  user_email: ""
+
+steps:
+  # Track signup event (analytics module)
+  - name: track-signup
+    activity:
+      type: trackEvent
+      args:
+        event_name: "user_signup"
+        user_id: "${user_id}"
+        properties:
+          name: "${user_name}"
+      ref: signupEvent
+
+  # Render welcome email (email module)
+  - name: render-welcome
+    activity:
+      type: renderTemplate
+      args:
+        template_name: "welcome"
+        variables:
+          name: "${user_name}"
+          event_id: "${signupEvent.event_id}"
+      ref: rendered
+
+  # Send the email (email module)
+  - name: send-welcome
+    activity:
+      type: sendEmail
+      args:
+        to: "${user_email}"
+        subject: "Welcome, ${user_name}!"
+        body: "${rendered.rendered_html}"
+      ref: emailResult
+
+  # Track email sent event (analytics module)
+  - name: track-email-sent
+    activity:
+      type: trackEvent
+      args:
+        event_name: "welcome_email_sent"
+        user_id: "${user_id}"
+        properties:
+          message_id: "${emailResult.message_id}"

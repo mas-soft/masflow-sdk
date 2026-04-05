@@ -1,0 +1,50 @@
+name: order-notifications
+description: Send multi-channel notifications when an order is placed
+
+variables:
+  customer_email: ""
+  customer_phone: ""
+  order_id: ""
+  order_total: 0
+
+steps:
+  - name: send-confirmation-email
+    activity:
+      type: sendEmail
+      args:
+        to: "${customer_email}"
+        subject: "Order ${order_id} confirmed"
+        body: "Thank you! Your order #${order_id} for $${order_total} has been confirmed."
+      ref: emailResult
+
+  - name: send-sms-confirmation
+    activity:
+      type: sendSMS
+      args:
+        phone_number: "${customer_phone}"
+        message: "Order #${order_id} confirmed. Total: $${order_total}"
+      ref: smsResult
+
+  - name: notify-ops-slack
+    activity:
+      type: sendSlack
+      args:
+        channel: "#orders"
+        message: "New order ${order_id} ($${order_total}) - email: ${emailResult.status}, sms: ${smsResult.status}"
+
+  - name: send-webhook
+    activity:
+      type: sendWebhook
+      args:
+        url: "https://analytics.example.com/events"
+        body: '{"event":"order_confirmed","order_id":"${order_id}","total":${order_total}}'
+
+  - name: audit-log
+    activity:
+      type: logNotification
+      args:
+        message: "Order ${order_id} notifications sent"
+        level: "info"
+        metadata:
+          email_status: "${emailResult.status}"
+          sms_status: "${smsResult.status}"

@@ -1,0 +1,32 @@
+name: expense-approval
+description: Submit expense for approval and notify on completion
+
+variables:
+  expense_id: ""
+  amount: 0
+  submitter: ""
+  approver: "manager@example.com"
+
+steps:
+  # Step 1: Request approval -- workflow pauses here
+  - name: request-approval
+    activity:
+      type: requestApproval
+      args:
+        request_id: "${expense_id}"
+        title: "Expense approval: $${amount}"
+        description: "Expense #${expense_id} submitted by ${submitter}"
+        approver: "${approver}"
+        urgency: "normal"
+      ref: approval
+      async: true
+      callback_signal: "approval-decision"
+      callback_timeout: "72h"
+
+  # Step 2: Runs after approval signal is received
+  - name: notify-submitter
+    activity:
+      type: notifyComplete
+      args:
+        message: "Your expense #${expense_id} has been processed (ticket: ${approval.ticket_id})"
+        channel: "email"

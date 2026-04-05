@@ -1,0 +1,17 @@
+name: hello-world
+description: A simple demo workflow
+
+steps:
+  - name: greet
+    activity:
+      type: greet
+      args:
+        name: "World"
+      ref: greeting
+
+  - name: log-greeting
+    activity:
+      type: logNotification
+      args:
+        message: "Greeting sent: ${greeting.message}"
+        level: "info"
