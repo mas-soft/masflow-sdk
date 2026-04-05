@@ -6,6 +6,7 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/invopop/jsonschema v0.13.0
 	go.temporal.io/sdk v1.36.0
+	golang.org/x/net v0.40.0
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.11
 )
@@ -28,7 +29,6 @@ require (
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.temporal.io/api v1.51.0 // indirect
-	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect

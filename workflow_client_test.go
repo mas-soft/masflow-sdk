@@ -194,3 +194,48 @@ func TestNewRunnerRequiresPlatformURL(t *testing.T) {
 		t.Fatal("expected error when platformURL is not set")
 	}
 }
+
+func TestDefaultIsGRPC(t *testing.T) {
+	m := NewModule("test", WithModuleTaskQueue("test-queue"))
+
+	// Default should be gRPC (HTTP/2)
+	r, err := NewRunner(m,
+		WithPlatformURL("http://localhost:9999"),
+		WithWorkflowURL("http://localhost:9999"),
+	)
+	if err != nil {
+		t.Fatalf("NewRunner: %v", err)
+	}
+	if !r.config.useGRPC {
+		t.Error("expected useGRPC to be true by default")
+	}
+	if r.Workflows() == nil {
+		t.Fatal("expected non-nil Workflows()")
+	}
+}
+
+func TestWithConnect(t *testing.T) {
+	m := NewModule("test", WithModuleTaskQueue("test-queue"))
+
+	// WithConnect should switch to HTTP/1.1 Connect protocol
+	r, err := NewRunner(m,
+		WithPlatformURL("http://localhost:9999"),
+		WithConnect(),
+	)
+	if err != nil {
+		t.Fatalf("NewRunner with WithConnect: %v", err)
+	}
+	if r.config.useGRPC {
+		t.Error("expected useGRPC to be false with WithConnect")
+	}
+}
+
+func TestWithWorkflowConnect(t *testing.T) {
+	wc := NewWorkflowClient("http://localhost:9999", WithWorkflowConnect())
+	if wc == nil {
+		t.Fatal("expected non-nil client")
+	}
+	if wc.baseURL != "http://localhost:9999" {
+		t.Errorf("baseURL = %q, want %q", wc.baseURL, "http://localhost:9999")
+	}
+}

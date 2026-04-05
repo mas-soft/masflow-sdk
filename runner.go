@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os/signal"
 	"syscall"
 
+	"connectrpc.com/connect"
 	"github.com/mas-soft/masflow/sdk/platform"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -51,6 +53,14 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 		return nil, fmt.Errorf("platform URL is required (use WithPlatformURL)")
 	}
 
+	// When gRPC mode is enabled, configure h2c transport and gRPC connect option.
+	if cfg.useGRPC {
+		cfg.connectOptions = append(cfg.connectOptions, connect.WithGRPC())
+		if cfg.httpClient == nil || cfg.httpClient == http.DefaultClient {
+			cfg.httpClient = newH2CClient()
+		}
+	}
+
 	r := &Runner{
 		module: m,
 		config: cfg,
@@ -59,11 +69,11 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 
 	// Create WorkflowClient eagerly if URL is configured.
 	if cfg.workflowURL != "" {
-		r.workflowClient = NewWorkflowClient(
-			cfg.workflowURL,
+		wcOpts := []WorkflowClientOption{
 			WithWorkflowHTTPClient(cfg.httpClient),
 			WithWorkflowConnectOptions(cfg.connectOptions...),
-		)
+		}
+		r.workflowClient = NewWorkflowClient(cfg.workflowURL, wcOpts...)
 	}
 
 	return r, nil

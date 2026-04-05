@@ -25,6 +25,7 @@ type WorkflowClientOption func(*workflowClientConfig)
 type workflowClientConfig struct {
 	httpClient     *http.Client
 	connectOptions []connect.ClientOption
+	useGRPC        bool
 }
 
 // WithWorkflowHTTPClient sets the HTTP client for the workflow client.
@@ -37,11 +38,26 @@ func WithWorkflowConnectOptions(opts ...connect.ClientOption) WorkflowClientOpti
 	return func(cfg *workflowClientConfig) { cfg.connectOptions = append(cfg.connectOptions, opts...) }
 }
 
+// WithWorkflowConnect configures the workflow client to use Connect protocol
+// over HTTP/1.1 instead of the default gRPC (HTTP/2).
+func WithWorkflowConnect() WorkflowClientOption {
+	return func(cfg *workflowClientConfig) { cfg.useGRPC = false }
+}
+
 // NewWorkflowClient creates a workflow client connected to the Masflow platform.
 func NewWorkflowClient(baseURL string, opts ...WorkflowClientOption) *WorkflowClient {
-	cfg := &workflowClientConfig{httpClient: http.DefaultClient}
+	cfg := &workflowClientConfig{
+		httpClient: http.DefaultClient,
+		useGRPC:    true, // gRPC over HTTP/2 by default
+	}
 	for _, opt := range opts {
 		opt(cfg)
+	}
+	if cfg.useGRPC {
+		cfg.connectOptions = append(cfg.connectOptions, connect.WithGRPC())
+		if cfg.httpClient == http.DefaultClient {
+			cfg.httpClient = newH2CClient()
+		}
 	}
 	return &WorkflowClient{
 		client:  pbconnect.NewWorkflowServiceClient(cfg.httpClient, baseURL, cfg.connectOptions...),

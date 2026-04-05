@@ -20,6 +20,7 @@ type runnerConfig struct {
 	workerOptions   worker.Options
 	httpClient      *http.Client
 	connectOptions  []connect.ClientOption
+	useGRPC         bool // use gRPC (HTTP/2) instead of Connect (HTTP/1.1)
 }
 
 func defaultConfig() *runnerConfig {
@@ -27,6 +28,7 @@ func defaultConfig() *runnerConfig {
 		shutdownTimeout: 30 * time.Second,
 		logger:          slog.Default(),
 		httpClient:      http.DefaultClient,
+		useGRPC:         true, // gRPC over HTTP/2 by default
 	}
 }
 
@@ -66,4 +68,11 @@ func WithConnectOptions(opts ...connect.ClientOption) RunnerOption {
 // and managing workflows. If not set, Runner.Workflows() returns nil.
 func WithWorkflowURL(url string) RunnerOption {
 	return func(c *runnerConfig) { c.workflowURL = url }
+}
+
+// WithConnect configures the runner to use Connect protocol over HTTP/1.1
+// instead of the default gRPC (HTTP/2). Connect uses standard HTTP semantics
+// and works with any proxy or load balancer without special HTTP/2 support.
+func WithConnect() RunnerOption {
+	return func(c *runnerConfig) { c.useGRPC = false }
 }
