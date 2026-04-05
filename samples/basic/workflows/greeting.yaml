@@ -1,0 +1,13 @@
+name: greeting-workflow
+description: Simple workflow that greets a user
+
+variables:
+  name: "World"
+
+steps:
+  - name: say-hello
+    activity:
+      type: greet
+      args:
+        name: "${name}"
+      ref: greeting

@@ -25,7 +25,7 @@ A full-featured notifications module with five activities across multiple channe
 ## Run
 
 ```bash
-go run . --temporal=localhost:7233 --platform=http://localhost:10000
+go run . --temporal=localhost:7233 --platform=http://localhost:9999
 ```
 
 ## Test

@@ -4,7 +4,11 @@
 // with its own task queue and runner, in a single Go process using errgroup.
 // The platform provides Temporal connection details during registration.
 //
-//	go run . --platform=http://localhost:10000
+//	# Workers only:
+//	go run . --platform=http://localhost:9999
+//
+//	# Workers + execute a cross-module workflow:
+//	go run . --platform=http://localhost:9999 --execute
 package main
 
 import (
@@ -100,6 +104,7 @@ func Aggregate(_ context.Context, in AggregateInput) (AggregateOutput, error) {
 
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	execute := flag.Bool("execute", false, "Execute a cross-module onboarding workflow after starting workers")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -153,6 +158,40 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	if *execute {
+		// Start both runners manually, execute workflow, then block
+		runners := make([]*sdk.Runner, 0, 2)
+		for _, mod := range []*sdk.Module{emailMod, analyticsMod} {
+			runner, err := sdk.NewRunner(mod,
+				sdk.WithPlatformURL(*platformURL),
+				sdk.WithWorkflowURL(*platformURL),
+				sdk.WithLogger(logger.With("module", mod.Name)),
+			)
+			if err != nil {
+				log.Fatalf("Failed to create runner for %s: %v", mod.Name, err)
+			}
+
+			logger.Info("Starting module", "module", mod.Name, "task_queue", mod.TaskQueue)
+			if err := runner.Start(ctx); err != nil {
+				log.Fatalf("Failed to start %s: %v", mod.Name, err)
+			}
+			runners = append(runners, runner)
+		}
+
+		time.Sleep(2 * time.Second)
+
+		// Use the first runner's WorkflowClient to execute a cross-module workflow
+		executeOnboardingWorkflow(runners[0].Workflows(), logger)
+
+		logger.Info("Workers still running. Press Ctrl+C to stop.")
+		<-ctx.Done()
+		for _, r := range runners {
+			r.Stop(context.Background())
+		}
+		return
+	}
+
+	// Normal mode: run both modules with errgroup
 	g, gctx := errgroup.WithContext(ctx)
 
 	for _, mod := range []*sdk.Module{emailMod, analyticsMod} {
@@ -178,6 +217,134 @@ func main() {
 
 	if err := g.Wait(); err != nil {
 		log.Fatalf("Runner error: %v", err)
+	}
+}
+
+// executeOnboardingWorkflow demonstrates a cross-module workflow that uses
+// activities from both the email and analytics modules.
+func executeOnboardingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger) {
+	if wc == nil {
+		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	yaml := `name: user-onboarding
+description: Cross-module workflow using email and analytics activities
+
+variables:
+  user_id: "usr-42"
+  user_name: "Alice"
+  user_email: "alice@example.com"
+
+steps:
+  - name: track-signup
+    activity:
+      type: trackEvent
+      args:
+        event_name: "user_signup"
+        user_id: "${user_id}"
+        properties:
+          name: "${user_name}"
+      ref: signupEvent
+
+  - name: render-welcome
+    activity:
+      type: renderTemplate
+      args:
+        template_name: "welcome"
+        variables:
+          name: "${user_name}"
+          event_id: "${signupEvent.event_id}"
+      ref: rendered
+
+  - name: send-welcome
+    activity:
+      type: sendEmail
+      args:
+        to: "${user_email}"
+        subject: "Welcome, ${user_name}!"
+        body: "${rendered.rendered_html}"
+      ref: emailResult
+
+  - name: track-email-sent
+    activity:
+      type: trackEvent
+      args:
+        event_name: "welcome_email_sent"
+        user_id: "${user_id}"
+        properties:
+          message_id: "${emailResult.message_id}"
+`
+
+	workflowID := fmt.Sprintf("onboarding-%d", time.Now().Unix())
+	logger.Info("Executing cross-module onboarding workflow", "workflow_id", workflowID)
+
+	result, err := wc.ExecuteYAML(ctx, yaml, &sdk.ExecuteSourceOptions{
+		WorkflowID: workflowID,
+	})
+	if err != nil {
+		logger.Error("Failed to execute workflow", "error", err)
+		return
+	}
+
+	logger.Info("Workflow started",
+		"workflow_id", result.WorkflowID,
+		"status", result.Status,
+	)
+
+	// Poll for completion
+	pollWorkflowStatus(ctx, wc, logger, result.WorkflowID)
+
+	// Describe the workflow for full details
+	info, err := wc.Describe(ctx, result.WorkflowID, "")
+	if err != nil {
+		logger.Warn("Could not describe workflow", "error", err)
+		return
+	}
+
+	logger.Info("Workflow details",
+		"type", info.WorkflowType,
+		"status", info.Status,
+		"duration", info.ExecutionTime,
+		"task_queue", info.TaskQueue,
+		"history_length", info.HistoryLength,
+	)
+}
+
+// pollWorkflowStatus polls a workflow until it completes, fails, or times out.
+func pollWorkflowStatus(ctx context.Context, wc *sdk.WorkflowClient, logger *slog.Logger, workflowID string) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("Timed out waiting for workflow", "workflow_id", workflowID)
+			return
+		case <-ticker.C:
+			status, err := wc.GetStatus(ctx, workflowID)
+			if err != nil {
+				logger.Error("Failed to get status", "error", err)
+				continue
+			}
+
+			logger.Info("Workflow status",
+				"workflow_id", status.WorkflowID,
+				"status", status.Status,
+			)
+
+			switch status.Status {
+			case sdk.WorkflowStatusCompleted:
+				logger.Info("Workflow completed successfully!")
+				return
+			case sdk.WorkflowStatusFailed, sdk.WorkflowStatusCancelled:
+				logger.Error("Workflow finished with error", "status", status.Status)
+				return
+			}
+		}
 	}
 }
 

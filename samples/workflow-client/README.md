@@ -16,29 +16,29 @@ A CLI tool that demonstrates the SDK's `WorkflowClient` for executing, monitorin
 
 ```bash
 # Execute a workflow
-go run . --url http://localhost:10000 execute --yaml example.yaml
+go run . --url http://localhost:9999 execute --yaml example.yaml
 
 # Check status
-go run . --url http://localhost:10000 status <workflow-id>
+go run . --url http://localhost:9999 status <workflow-id>
 
 # Detailed info
-go run . --url http://localhost:10000 describe <workflow-id>
+go run . --url http://localhost:9999 describe <workflow-id>
 
 # Monitor steps in real-time
-go run . --url http://localhost:10000 monitor <workflow-id>
+go run . --url http://localhost:9999 monitor <workflow-id>
 
 # List recent workflows
-go run . --url http://localhost:10000 list
+go run . --url http://localhost:9999 list
 
 # Search
-go run . --url http://localhost:10000 search "notifications"
+go run . --url http://localhost:9999 search "notifications"
 
 # Lifecycle
-go run . --url http://localhost:10000 cancel <workflow-id> "no longer needed"
-go run . --url http://localhost:10000 pause <workflow-id>
-go run . --url http://localhost:10000 resume <workflow-id>
-go run . --url http://localhost:10000 signal <workflow-id> approval-granted
+go run . --url http://localhost:9999 cancel <workflow-id> "no longer needed"
+go run . --url http://localhost:9999 pause <workflow-id>
+go run . --url http://localhost:9999 resume <workflow-id>
+go run . --url http://localhost:9999 signal <workflow-id> approval-granted
 
 # Validate without executing
-go run . --url http://localhost:10000 validate example.yaml
+go run . --url http://localhost:9999 validate example.yaml
 ```

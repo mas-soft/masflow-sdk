@@ -1,24 +1,35 @@
 // Advanced example -- a full notifications module with multiple activities.
 //
 // Demonstrates multiple activity types (sync, void), rich metadata,
-// input validation, structured error handling, and environment-based config.
+// input validation, structured error handling, and workflow execution.
 // The platform provides Temporal connection details during registration.
 //
-//	go run . --platform=http://localhost:10000
+//	# Worker only:
+//	go run . --platform=http://localhost:9999
+//
+//	# Worker + execute a workflow:
+//	go run . --platform=http://localhost:9999 --execute
+//
+//	# Execute workflow from YAML file:
+//	go run . --platform=http://localhost:9999 --execute --yaml workflows/order-notifications.yaml
 package main
 
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
+	"time"
 
 	sdk "github.com/mas-soft/masflow/sdk"
 )
 
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	execute := flag.Bool("execute", true, "Execute a sample notification workflow after starting the worker")
+	yamlFile := flag.String("yaml", "", "Path to workflow YAML file (used with --execute; defaults to inline example)")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -81,6 +92,7 @@ func main() {
 
 	runner, err := sdk.NewRunner(mod,
 		sdk.WithPlatformURL(*platformURL),
+		sdk.WithWorkflowURL(*platformURL),
 		sdk.WithLogger(logger),
 	)
 	if err != nil {
@@ -93,8 +105,174 @@ func main() {
 		"activities", len(mod.Activities()),
 	)
 
+	if *execute {
+		if err := runner.Start(context.Background()); err != nil {
+			log.Fatalf("Failed to start runner: %v", err)
+		}
+
+		time.Sleep(2 * time.Second)
+		executeNotificationWorkflow(runner.Workflows(), logger, *yamlFile)
+
+		logger.Info("Worker still running. Press Ctrl+C to stop.")
+		select {}
+	}
+
 	if err := runner.Run(context.Background()); err != nil {
 		log.Fatalf("Runner error: %v", err)
+	}
+}
+
+// executeNotificationWorkflow executes a multi-channel notification workflow
+// and monitors it to completion.
+func executeNotificationWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile string) {
+	if wc == nil {
+		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Load workflow YAML
+	var yaml string
+	if yamlFile != "" {
+		data, err := os.ReadFile(yamlFile)
+		if err != nil {
+			logger.Error("Failed to read workflow file", "file", yamlFile, "error", err)
+			return
+		}
+		yaml = string(data)
+		logger.Info("Loaded workflow from file", "file", yamlFile)
+	} else {
+		yaml = inlineNotificationWorkflow()
+		logger.Info("Using inline notification workflow")
+	}
+
+	// Execute
+	workflowID := fmt.Sprintf("notifications-%d", time.Now().Unix())
+	logger.Info("Executing notification workflow", "workflow_id", workflowID)
+
+	result, err := wc.ExecuteYAML(ctx, yaml, &sdk.ExecuteSourceOptions{
+		WorkflowID: workflowID,
+		Variables: map[string]any{
+			"customer_email": "user@example.com",
+			"customer_phone": "+1234567890",
+			"order_id":       "ORD-42",
+			"order_total":    99.99,
+		},
+	})
+	if err != nil {
+		logger.Error("Failed to execute workflow", "error", err)
+		return
+	}
+
+	logger.Info("Workflow started",
+		"workflow_id", result.WorkflowID,
+		"status", result.Status,
+	)
+
+	// Poll for completion
+	pollWorkflowStatus(ctx, wc, logger, result.WorkflowID)
+
+	// Show monitoring data
+	mon, err := wc.Monitor(ctx, result.WorkflowID, "")
+	if err != nil {
+		logger.Warn("Could not fetch monitor data", "error", err)
+		return
+	}
+
+	logger.Info("Workflow monitor",
+		"status", mon.Status,
+		"progress", fmt.Sprintf("%d/%d steps (%.0f%%)",
+			mon.Progress.CurrentStep, mon.Progress.TotalSteps, mon.Progress.Percentage),
+		"completed", mon.StepCounts.Completed,
+		"failed", mon.StepCounts.Failed,
+	)
+	for _, s := range mon.Steps {
+		logger.Info("  step",
+			"name", s.Name,
+			"type", s.StepType,
+			"status", s.Status,
+			"duration_ms", s.DurationMs,
+		)
+	}
+}
+
+func inlineNotificationWorkflow() string {
+	return `name: order-notifications
+description: Send multi-channel notifications when an order is placed
+
+variables:
+  customer_email: ""
+  customer_phone: ""
+  order_id: ""
+  order_total: 0
+
+steps:
+  - name: send-confirmation-email
+    activity:
+      type: sendEmail
+      args:
+        to: "${customer_email}"
+        subject: "Order ${order_id} confirmed"
+        body: "Thank you! Your order #${order_id} for $${order_total} has been confirmed."
+      ref: emailResult
+
+  - name: send-sms-confirmation
+    activity:
+      type: sendSMS
+      args:
+        phone_number: "${customer_phone}"
+        message: "Order #${order_id} confirmed. Total: $${order_total}"
+      ref: smsResult
+
+  - name: notify-ops-slack
+    activity:
+      type: sendSlack
+      args:
+        channel: "#orders"
+        message: "New order ${order_id} ($${order_total}) - email sent, sms sent"
+
+  - name: audit-log
+    activity:
+      type: logNotification
+      args:
+        message: "Order ${order_id} notifications sent"
+        level: "info"
+`
+}
+
+// pollWorkflowStatus polls a workflow until it completes, fails, or times out.
+func pollWorkflowStatus(ctx context.Context, wc *sdk.WorkflowClient, logger *slog.Logger, workflowID string) {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("Timed out waiting for workflow", "workflow_id", workflowID)
+			return
+		case <-ticker.C:
+			status, err := wc.GetStatus(ctx, workflowID)
+			if err != nil {
+				logger.Error("Failed to get status", "error", err)
+				continue
+			}
+
+			logger.Info("Workflow status",
+				"workflow_id", status.WorkflowID,
+				"status", status.Status,
+			)
+
+			switch status.Status {
+			case sdk.WorkflowStatusCompleted:
+				logger.Info("Workflow completed successfully!")
+				return
+			case sdk.WorkflowStatusFailed, sdk.WorkflowStatusCancelled:
+				logger.Error("Workflow finished with error", "status", status.Status)
+				return
+			}
+		}
 	}
 }
 

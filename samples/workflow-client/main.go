@@ -4,11 +4,11 @@
 // (no Temporal worker needed). It can execute workflows, check status,
 // list running workflows, and perform lifecycle operations.
 //
-//	go run . --url=http://localhost:10000 execute --yaml workflow.yaml
-//	go run . --url=http://localhost:10000 status <workflow-id>
-//	go run . --url=http://localhost:10000 monitor <workflow-id>
-//	go run . --url=http://localhost:10000 list
-//	go run . --url=http://localhost:10000 cancel <workflow-id>
+//	go run . --url=http://localhost:9999 execute --yaml workflow.yaml
+//	go run . --url=http://localhost:9999 status <workflow-id>
+//	go run . --url=http://localhost:9999 monitor <workflow-id>
+//	go run . --url=http://localhost:9999 list
+//	go run . --url=http://localhost:9999 cancel <workflow-id>
 package main
 
 import (
@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// Parse --url flag manually for simplicity
-	url := "http://localhost:10000"
+	url := "http://localhost:9999"
 	args := os.Args[1:]
 	if args[0] == "--url" || args[0] == "-url" {
 		if len(args) < 3 {

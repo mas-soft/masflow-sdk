@@ -27,11 +27,11 @@ go run . --temporal=localhost:7233
 
 # Run the advanced notifications module
 cd advanced
-go run . --temporal=localhost:7233 --platform=http://localhost:10000
+go run . --temporal=localhost:7233 --platform=http://localhost:9999
 
 # Execute a workflow via the CLI client
 cd workflow-client
-go run . --url http://localhost:10000 execute --yaml example.yaml
+go run . --url http://localhost:9999 execute --yaml example.yaml
 
 # Run async approval activities
 cd async

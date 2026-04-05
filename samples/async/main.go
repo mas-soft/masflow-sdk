@@ -5,7 +5,11 @@
 // until an external system signals completion using the callback info.
 // The platform provides Temporal connection details during registration.
 //
-//	go run . --platform=http://localhost:10000
+//	# Worker only:
+//	go run . --platform=http://localhost:9999
+//
+//	# Worker + execute workflow + auto-signal approval:
+//	go run . --platform=http://localhost:9999 --execute
 package main
 
 import (
@@ -47,9 +51,9 @@ type ExternalJobRequest struct {
 
 // ExternalJobResult is the initial acknowledgment.
 type ExternalJobResult struct {
-	JobID     string `json:"job_id"`
-	Status    string `json:"status"`
-	QueuedAt  string `json:"queued_at"`
+	JobID    string `json:"job_id"`
+	Status   string `json:"status"`
+	QueuedAt string `json:"queued_at"`
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────
@@ -127,6 +131,7 @@ func NotifyComplete(_ context.Context, in NotifyInput) (NotifyOutput, error) {
 
 func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	execute := flag.Bool("execute", false, "Execute an approval workflow and auto-signal completion")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -167,6 +172,7 @@ func main() {
 
 	runner, err := sdk.NewRunner(mod,
 		sdk.WithPlatformURL(*platformURL),
+		sdk.WithWorkflowURL(*platformURL),
 		sdk.WithLogger(logger),
 	)
 	if err != nil {
@@ -178,8 +184,149 @@ func main() {
 		"task_queue", mod.TaskQueue,
 	)
 
+	if *execute {
+		if err := runner.Start(context.Background()); err != nil {
+			log.Fatalf("Failed to start runner: %v", err)
+		}
+
+		time.Sleep(2 * time.Second)
+		executeApprovalWorkflow(runner.Workflows(), logger)
+
+		logger.Info("Worker still running. Press Ctrl+C to stop.")
+		select {}
+	}
+
 	if err := runner.Run(context.Background()); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// executeApprovalWorkflow executes an expense approval workflow and demonstrates
+// signaling an async activity to simulate external approval.
+func executeApprovalWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger) {
+	if wc == nil {
+		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	yaml := `name: expense-approval
+description: Submit expense for approval and notify on completion
+
+variables:
+  expense_id: "EXP-001"
+  amount: 250
+  submitter: "alice@example.com"
+  approver: "manager@example.com"
+
+steps:
+  - name: request-approval
+    activity:
+      type: requestApproval
+      args:
+        request_id: "${expense_id}"
+        title: "Expense approval: $${amount}"
+        description: "Expense #${expense_id} submitted by ${submitter}"
+        approver: "${approver}"
+        urgency: "normal"
+      ref: approval
+      async: true
+      callback_signal: "approval-decision"
+      callback_timeout: "72h"
+
+  - name: notify-submitter
+    activity:
+      type: notifyComplete
+      args:
+        message: "Your expense #${expense_id} has been processed (ticket: ${approval.ticket_id})"
+        channel: "email"
+`
+
+	workflowID := fmt.Sprintf("approval-%d", time.Now().Unix())
+	logger.Info("Executing approval workflow", "workflow_id", workflowID)
+
+	result, err := wc.ExecuteYAML(ctx, yaml, &sdk.ExecuteSourceOptions{
+		WorkflowID: workflowID,
+	})
+	if err != nil {
+		logger.Error("Failed to execute workflow", "error", err)
+		return
+	}
+
+	logger.Info("Workflow started (waiting for async approval step)",
+		"workflow_id", result.WorkflowID,
+		"status", result.Status,
+	)
+
+	// Wait a few seconds for the async activity to start, then simulate approval
+	time.Sleep(5 * time.Second)
+
+	logger.Info("Simulating external approval by sending signal",
+		"workflow_id", workflowID,
+		"signal", "approval-decision",
+	)
+
+	signalResult, err := wc.Signal(ctx, workflowID, "approval-decision", map[string]any{
+		"approved": true,
+		"comment":  "Looks good, approved!",
+	})
+	if err != nil {
+		logger.Error("Failed to signal workflow", "error", err)
+		return
+	}
+
+	logger.Info("Signal sent",
+		"workflow_id", signalResult.WorkflowID,
+		"run_id", signalResult.RunID,
+	)
+
+	// Poll for completion after signal
+	pollWorkflowStatus(ctx, wc, logger, workflowID)
+}
+
+// pollWorkflowStatus polls a workflow until it completes, fails, or times out.
+func pollWorkflowStatus(ctx context.Context, wc *sdk.WorkflowClient, logger *slog.Logger, workflowID string) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("Timed out waiting for workflow", "workflow_id", workflowID)
+			return
+		case <-ticker.C:
+			status, err := wc.GetStatus(ctx, workflowID)
+			if err != nil {
+				logger.Error("Failed to get status", "error", err)
+				continue
+			}
+
+			logger.Info("Workflow status",
+				"workflow_id", status.WorkflowID,
+				"status", status.Status,
+			)
+
+			switch status.Status {
+			case sdk.WorkflowStatusCompleted:
+				logger.Info("Workflow completed successfully!")
+				if len(status.Trace) > 0 {
+					logger.Info("Execution trace:")
+					for _, t := range status.Trace {
+						logger.Info("  trace",
+							"step", t.StepType,
+							"status", t.Status,
+							"details", t.Details,
+						)
+					}
+				}
+				return
+			case sdk.WorkflowStatusFailed, sdk.WorkflowStatusCancelled:
+				logger.Error("Workflow finished with error", "status", status.Status)
+				return
+			}
+		}
 	}
 }
 

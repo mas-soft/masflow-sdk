@@ -18,7 +18,7 @@ go run . --temporal=localhost:7233
 With platform registration:
 
 ```bash
-go run . --temporal=localhost:7233 --platform=http://localhost:10000
+go run . --temporal=localhost:7233 --platform=http://localhost:9999
 ```
 
 ## Workflow YAML

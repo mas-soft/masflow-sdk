@@ -9,12 +9,12 @@ import (
 )
 
 func TestNewWorkflowClient(t *testing.T) {
-	c := NewWorkflowClient("http://localhost:10000")
+	c := NewWorkflowClient("http://localhost:9999")
 	if c == nil {
 		t.Fatal("expected non-nil client")
 	}
-	if c.baseURL != "http://localhost:10000" {
-		t.Errorf("baseURL = %q, want %q", c.baseURL, "http://localhost:10000")
+	if c.baseURL != "http://localhost:9999" {
+		t.Errorf("baseURL = %q, want %q", c.baseURL, "http://localhost:9999")
 	}
 }
 
@@ -162,7 +162,7 @@ func TestRunnerWorkflows(t *testing.T) {
 	m := NewModule("test", WithModuleTaskQueue("test-queue"))
 
 	// Without WorkflowURL → nil
-	r, err := NewRunner(m, WithPlatformURL("http://localhost:10000"))
+	r, err := NewRunner(m, WithPlatformURL("http://localhost:9999"))
 	if err != nil {
 		t.Fatalf("NewRunner: %v", err)
 	}
@@ -172,8 +172,8 @@ func TestRunnerWorkflows(t *testing.T) {
 
 	// With WorkflowURL → non-nil
 	r2, err := NewRunner(m,
-		WithPlatformURL("http://localhost:10000"),
-		WithWorkflowURL("http://localhost:10000"),
+		WithPlatformURL("http://localhost:9999"),
+		WithWorkflowURL("http://localhost:9999"),
 	)
 	if err != nil {
 		t.Fatalf("NewRunner: %v", err)
@@ -182,8 +182,8 @@ func TestRunnerWorkflows(t *testing.T) {
 	if wc == nil {
 		t.Fatal("expected non-nil Workflows() with WithWorkflowURL")
 	}
-	if wc.baseURL != "http://localhost:10000" {
-		t.Errorf("Workflows().baseURL = %q, want %q", wc.baseURL, "http://localhost:10000")
+	if wc.baseURL != "http://localhost:9999" {
+		t.Errorf("Workflows().baseURL = %q, want %q", wc.baseURL, "http://localhost:9999")
 	}
 }
 

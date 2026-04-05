@@ -81,7 +81,7 @@ func Example() {
 	//    The platform provides Temporal connection details during registration.
 	//
 	//   runner, err := sdk.NewRunner(mod,
-	//       sdk.WithPlatformURL("http://localhost:10000"),
+	//       sdk.WithPlatformURL("http://localhost:9999"),
 	//   )
 	//   if err != nil {
 	//       log.Fatal(err)

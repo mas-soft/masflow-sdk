@@ -92,7 +92,7 @@ func main() {
 
     // 4. Run - registers with platform, receives Temporal config, starts worker
     runner, err := sdk.NewRunner(mod,
-        sdk.WithPlatformURL("http://localhost:10000"),
+        sdk.WithPlatformURL("http://localhost:9999"),
     )
     if err != nil {
         log.Fatal(err)
@@ -333,7 +333,7 @@ The `Runner` is the batteries-included entry point that handles everything:
 
 ```go
 runner, err := sdk.NewRunner(mod,
-    sdk.WithPlatformURL("http://localhost:10000"),
+    sdk.WithPlatformURL("http://localhost:9999"),
     sdk.WithLogger(slog.Default()),
 )
 if err != nil {
@@ -560,7 +560,7 @@ The SDK includes a `WorkflowClient` for executing, monitoring, and managing work
 **Standalone** (no Runner needed):
 
 ```go
-wc := sdk.NewWorkflowClient("http://localhost:10000",
+wc := sdk.NewWorkflowClient("http://localhost:9999",
     sdk.WithWorkflowHTTPClient(customHTTPClient),       // optional
     sdk.WithWorkflowConnectOptions(connectOpts...),     // optional
 )
@@ -570,8 +570,8 @@ wc := sdk.NewWorkflowClient("http://localhost:10000",
 
 ```go
 runner, _ := sdk.NewRunner(mod,
-    sdk.WithPlatformURL("http://localhost:10000"),
-    sdk.WithWorkflowURL("http://localhost:10000"),
+    sdk.WithPlatformURL("http://localhost:9999"),
+    sdk.WithWorkflowURL("http://localhost:9999"),
 )
 runner.Start(ctx)
 
@@ -814,7 +814,7 @@ services:
 
 `WithPlatformURL` is required when creating a Runner. The platform provides Temporal connection details during registration:
 ```go
-sdk.NewRunner(mod, sdk.WithPlatformURL("http://localhost:10000"))
+sdk.NewRunner(mod, sdk.WithPlatformURL("http://localhost:9999"))
 ```
 
 ### "failed to register with masflow platform"
