@@ -12,7 +12,7 @@ steps:
     type: activity
     activity:
       type: sendEmail
-      task_queue: notifications-task-queue
+      module: notifications
       args:
         to: "${customer_email}"
         subject: "Order ${order_id} confirmed"
@@ -23,7 +23,7 @@ steps:
     type: activity
     activity:
       type: sendSMS
-      task_queue: notifications-task-queue
+      module: notifications
       args:
         phone_number: "${customer_phone}"
         message: "Order #${order_id} confirmed. Total: $${order_total}"
@@ -33,7 +33,7 @@ steps:
     type: activity
     activity:
       type: sendSlack
-      task_queue: notifications-task-queue
+      module: notifications
       args:
         channel: "#orders"
         message: "New order ${order_id} ($${order_total}) - email: ${emailResult.status}, sms: ${smsResult.status}"
@@ -42,7 +42,7 @@ steps:
     type: activity
     activity:
       type: sendWebhook
-      task_queue: notifications-task-queue
+      module: notifications
       args:
         url: "https://analytics.example.com/events"
         body: '{"event":"order_confirmed","order_id":"${order_id}","total":${order_total}}'
@@ -51,7 +51,7 @@ steps:
     type: activity
     activity:
       type: logNotification
-      task_queue: notifications-task-queue
+      module: notifications
       args:
         message: "Order ${order_id} notifications sent"
         level: "info"
