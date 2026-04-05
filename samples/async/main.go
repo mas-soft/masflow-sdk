@@ -3,8 +3,9 @@
 // Async activities start long-running work (e.g., creating a Jira ticket,
 // requesting human approval) and return immediately. The workflow pauses
 // until an external system signals completion using the callback info.
+// The platform provides Temporal connection details during registration.
 //
-//	go run . --temporal=localhost:7233
+//	go run . --platform=http://localhost:10000
 package main
 
 import (
@@ -65,10 +66,6 @@ func RequestApproval(_ context.Context, in ApprovalRequest, async *sdk.AsyncCall
 
 	ticketID := fmt.Sprintf("APR-%d", time.Now().UnixNano()%100000)
 
-	// In a real implementation, you would:
-	// 1. Create a ticket in your approval system (Jira, ServiceNow, etc.)
-	// 2. Store the callback info alongside the ticket so the approval system
-	//    can signal back to Temporal when the approver makes a decision.
 	slog.Info("Approval requested",
 		"ticket_id", ticketID,
 		"approver", in.Approver,
@@ -77,12 +74,6 @@ func RequestApproval(_ context.Context, in ApprovalRequest, async *sdk.AsyncCall
 		"callback_signal", async.CallbackSignal,
 		"callback_timeout", async.CallbackTimeout,
 	)
-
-	// The workflow will now pause at this step. When the approver acts,
-	// your approval system should call Temporal's SignalWorkflow API:
-	//
-	//   client.SignalWorkflow(ctx, async.WorkflowID, async.RunID,
-	//       async.CallbackSignal, map[string]any{"approved": true})
 
 	return ApprovalResult{
 		TicketID:  ticketID,
@@ -105,9 +96,6 @@ func StartExternalJob(_ context.Context, in ExternalJobRequest, async *sdk.Async
 		"job_type", in.JobType,
 		"callback_signal", async.CallbackSignal,
 	)
-
-	// In production: submit job to external system, store callback info.
-	// When the job completes, the external system signals back.
 
 	return ExternalJobResult{
 		JobID:    jobID,
@@ -138,10 +126,12 @@ func NotifyComplete(_ context.Context, in NotifyInput) (NotifyOutput, error) {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 func main() {
-	temporalAddr := flag.String("temporal", envOr("TEMPORAL_HOST", "localhost:7233"), "Temporal address")
-	temporalNS := flag.String("namespace", envOr("TEMPORAL_NAMESPACE", "default"), "Temporal namespace")
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL")
+	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	flag.Parse()
+
+	if *platformURL == "" {
+		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -155,7 +145,6 @@ func main() {
 		sdk.WithModuleTags("async", "approval", "human-in-the-loop", "external-job"),
 	)
 
-	// Async activities -- workflow pauses until external signal
 	sdk.RegisterAsync(mod, "requestApproval", RequestApproval,
 		sdk.WithDescription("Create an approval request and wait for human decision"),
 		sdk.WithIcon("user-check"),
@@ -170,23 +159,16 @@ func main() {
 		sdk.WithTags("external", "job", "async"),
 	)
 
-	// Sync activity -- runs after async step completes
 	sdk.Register(mod, "notifyComplete", NotifyComplete,
 		sdk.WithDescription("Send a completion notification"),
 		sdk.WithIcon("bell"),
 		sdk.WithCategory("notifications"),
 	)
 
-	opts := []sdk.RunnerOption{
-		sdk.WithTemporalAddress(*temporalAddr),
-		sdk.WithTemporalNamespace(*temporalNS),
+	runner, err := sdk.NewRunner(mod,
+		sdk.WithPlatformURL(*platformURL),
 		sdk.WithLogger(logger),
-	}
-	if *platformURL != "" {
-		opts = append(opts, sdk.WithPlatformURL(*platformURL))
-	}
-
-	runner, err := sdk.NewRunner(mod, opts...)
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

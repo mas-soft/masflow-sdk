@@ -20,7 +20,6 @@
 //	)
 //
 //	runner, _ := masflowsdk.NewRunner(mod,
-//	    masflowsdk.WithTemporalAddress("localhost:7233"),
 //	    masflowsdk.WithPlatformURL("http://localhost:10000"),
 //	)
 //	runner.Run(context.Background())
@@ -48,11 +47,11 @@
 //
 // The [Runner] manages the full module lifecycle:
 //
-//  1. Connects to Temporal (or uses a provided client)
-//  2. Creates and starts a Temporal worker on the module's task queue
-//  3. Registers the module with the Masflow platform (optional)
+//  1. Registers the module with the Masflow platform
+//  2. Receives Temporal address and namespace from the platform
+//  3. Connects to Temporal and starts a worker on the module's task queue
 //  4. Handles graceful shutdown on SIGINT/SIGTERM
 //
-// For manual worker setup, use [RegisterAll] to register all module activities
-// with a Temporal worker directly.
+// Third-party modules do not configure Temporal address or namespace directly.
+// The platform is the source of truth and provides these during registration.
 package masflowsdk

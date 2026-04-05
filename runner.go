@@ -13,7 +13,11 @@ import (
 )
 
 // Runner manages the lifecycle of a masflow module:
-// Temporal client connection, worker start, platform registration, and graceful shutdown.
+// platform registration, Temporal client connection, worker start, and graceful shutdown.
+//
+// The flow is: register with platform → receive Temporal config → connect to Temporal → start worker.
+// Third-party modules do not configure Temporal address or namespace directly —
+// those values are provided by the masflow platform during registration.
 type Runner struct {
 	module         *Module
 	config         *runnerConfig
@@ -21,12 +25,12 @@ type Runner struct {
 	worker         worker.Worker
 	platformClient *platform.Client
 	workflowClient *WorkflowClient
-	ownsClient     bool // true if we created the Temporal client (and must close it)
 	registered     bool // true if we registered with the platform
 	logger         *slog.Logger
 }
 
 // NewRunner creates a Runner for the given module.
+// WithPlatformURL is required — the platform provides Temporal connection details.
 func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 	if m == nil {
 		return nil, fmt.Errorf("module is required")
@@ -41,6 +45,10 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 	cfg := defaultConfig()
 	for _, opt := range opts {
 		opt(cfg)
+	}
+
+	if cfg.platformURL == "" {
+		return nil, fmt.Errorf("platform URL is required (use WithPlatformURL)")
 	}
 
 	r := &Runner{
@@ -67,7 +75,7 @@ func (r *Runner) Workflows() *WorkflowClient {
 	return r.workflowClient
 }
 
-// Run starts the worker, registers with the platform (if configured),
+// Run starts the worker, registers with the platform,
 // and blocks until ctx is cancelled or a termination signal (SIGINT/SIGTERM) is received.
 func (r *Runner) Run(ctx context.Context) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
@@ -86,64 +94,59 @@ func (r *Runner) Run(ctx context.Context) error {
 	return r.Stop(stopCtx)
 }
 
-// Start starts the Temporal worker and registers with the platform.
+// Start registers with the platform to obtain Temporal config,
+// connects to Temporal, and starts the worker.
 // Call Stop() to shut down. For a blocking version, use Run().
 func (r *Runner) Start(ctx context.Context) error {
-	// 1. Create or use provided Temporal client
-	if r.config.temporalClient != nil {
-		r.temporalClient = r.config.temporalClient
-		r.ownsClient = false
-	} else {
-		tc, err := client.Dial(client.Options{
-			HostPort:  r.config.temporalAddress,
-			Namespace: r.config.temporalNamespace,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to connect to Temporal at %s: %w", r.config.temporalAddress, err)
-		}
-		r.temporalClient = tc
-		r.ownsClient = true
-		r.logger.Info("Connected to Temporal",
-			"address", r.config.temporalAddress,
-			"namespace", r.config.temporalNamespace)
-	}
+	// 1. Register with platform — get Temporal connection details
+	r.platformClient = platform.NewClient(
+		r.config.platformURL,
+		platform.WithHTTPClient(r.config.httpClient),
+		platform.WithConnectOptions(r.config.connectOptions...),
+	)
 
-	// 2. Create and start the Temporal worker
+	resp, err := r.platformClient.RegisterModule(ctx, r.module.toProto())
+	if err != nil {
+		return fmt.Errorf("failed to register with masflow platform at %s: %w", r.config.platformURL, err)
+	}
+	r.registered = true
+
+	temporalAddr := resp.GetTemporalAddress()
+	temporalNS := resp.GetTemporalNamespace()
+
+	r.logger.Info("Registered with masflow platform",
+		"module", resp.GetModuleName(),
+		"activities", resp.GetRegisteredActivities(),
+		"platform_url", r.config.platformURL,
+		"temporal_address", temporalAddr,
+		"temporal_namespace", temporalNS,
+	)
+
+	// 2. Connect to Temporal using platform-provided config
+	tc, err := client.Dial(client.Options{
+		HostPort:  temporalAddr,
+		Namespace: temporalNS,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to connect to Temporal at %s (namespace %s): %w", temporalAddr, temporalNS, err)
+	}
+	r.temporalClient = tc
+	r.logger.Info("Connected to Temporal",
+		"address", temporalAddr,
+		"namespace", temporalNS)
+
+	// 3. Create and start the Temporal worker
 	r.worker = worker.New(r.temporalClient, r.module.TaskQueue, r.config.workerOptions)
 	RegisterAll(r.worker, r.module)
 
 	if err := r.worker.Start(); err != nil {
-		if r.ownsClient {
-			r.temporalClient.Close()
-		}
+		r.temporalClient.Close()
 		return fmt.Errorf("failed to start Temporal worker: %w", err)
 	}
 	r.logger.Info("Temporal worker started",
 		"module", r.module.Name,
 		"task_queue", r.module.TaskQueue,
 		"activities", len(r.module.activities))
-
-	// 3. Register with platform (if configured)
-	if r.config.platformURL != "" {
-		r.platformClient = platform.NewClient(
-			r.config.platformURL,
-			platform.WithHTTPClient(r.config.httpClient),
-			platform.WithConnectOptions(r.config.connectOptions...),
-		)
-
-		resp, err := r.platformClient.RegisterModule(ctx, r.module.toProto())
-		if err != nil {
-			r.logger.Warn("Failed to register with platform (module will still process activities)",
-				"error", err,
-				"platform_url", r.config.platformURL)
-		} else {
-			r.registered = true
-			r.logger.Info("Registered with masflow platform",
-				"module", resp.GetModuleName(),
-				"activities", resp.GetRegisteredActivities(),
-				"platform_url", r.config.platformURL)
-		}
-	}
 
 	return nil
 }
@@ -169,8 +172,8 @@ func (r *Runner) Stop(ctx context.Context) error {
 		r.logger.Info("Temporal worker stopped")
 	}
 
-	// Close Temporal client if we own it
-	if r.ownsClient && r.temporalClient != nil {
+	// Close Temporal client
+	if r.temporalClient != nil {
 		r.temporalClient.Close()
 		r.logger.Info("Temporal client closed")
 	}

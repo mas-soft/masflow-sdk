@@ -2,8 +2,9 @@
 //
 // Demonstrates multiple activity types (sync, void), rich metadata,
 // input validation, structured error handling, and environment-based config.
+// The platform provides Temporal connection details during registration.
 //
-//	go run . --temporal=localhost:7233 --platform=http://localhost:10000
+//	go run . --platform=http://localhost:10000
 package main
 
 import (
@@ -17,10 +18,12 @@ import (
 )
 
 func main() {
-	temporalAddr := flag.String("temporal", envOr("TEMPORAL_HOST", "localhost:7233"), "Temporal address")
-	temporalNS := flag.String("namespace", envOr("TEMPORAL_NAMESPACE", "bpm-namespace"), "Temporal namespace")
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL")
+	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	flag.Parse()
+
+	if *platformURL == "" {
+		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
@@ -76,23 +79,15 @@ func main() {
 
 	// ── Runner ───────────────────────────────────────────────────────────
 
-	opts := []sdk.RunnerOption{
-		sdk.WithTemporalAddress(*temporalAddr),
-		sdk.WithTemporalNamespace(*temporalNS),
+	runner, err := sdk.NewRunner(mod,
+		sdk.WithPlatformURL(*platformURL),
 		sdk.WithLogger(logger),
-	}
-	if *platformURL != "" {
-		opts = append(opts, sdk.WithPlatformURL(*platformURL))
-	}
-
-	runner, err := sdk.NewRunner(mod, opts...)
+	)
 	if err != nil {
 		log.Fatalf("Failed to create runner: %v", err)
 	}
 
 	logger.Info("Starting notifications module",
-		"temporal", *temporalAddr,
-		"namespace", *temporalNS,
 		"platform", *platformURL,
 		"task_queue", mod.TaskQueue,
 		"activities", len(mod.Activities()),

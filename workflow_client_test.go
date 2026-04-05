@@ -162,7 +162,7 @@ func TestRunnerWorkflows(t *testing.T) {
 	m := NewModule("test", WithModuleTaskQueue("test-queue"))
 
 	// Without WorkflowURL → nil
-	r, err := NewRunner(m)
+	r, err := NewRunner(m, WithPlatformURL("http://localhost:10000"))
 	if err != nil {
 		t.Fatalf("NewRunner: %v", err)
 	}
@@ -171,7 +171,10 @@ func TestRunnerWorkflows(t *testing.T) {
 	}
 
 	// With WorkflowURL → non-nil
-	r2, err := NewRunner(m, WithWorkflowURL("http://localhost:10000"))
+	r2, err := NewRunner(m,
+		WithPlatformURL("http://localhost:10000"),
+		WithWorkflowURL("http://localhost:10000"),
+	)
 	if err != nil {
 		t.Fatalf("NewRunner: %v", err)
 	}
@@ -181,5 +184,13 @@ func TestRunnerWorkflows(t *testing.T) {
 	}
 	if wc.baseURL != "http://localhost:10000" {
 		t.Errorf("Workflows().baseURL = %q, want %q", wc.baseURL, "http://localhost:10000")
+	}
+}
+
+func TestNewRunnerRequiresPlatformURL(t *testing.T) {
+	m := NewModule("test", WithModuleTaskQueue("test-queue"))
+	_, err := NewRunner(m)
+	if err == nil {
+		t.Fatal("expected error when platformURL is not set")
 	}
 }

@@ -77,10 +77,10 @@ func Example() {
 		fmt.Printf("Activity: %s - %s\n", def.Name, def.Description)
 	}
 
-	// 4. To run as a standalone service (requires Temporal):
+	// 4. To run as a standalone service:
+	//    The platform provides Temporal connection details during registration.
 	//
 	//   runner, err := sdk.NewRunner(mod,
-	//       sdk.WithTemporalAddress("localhost:7233"),
 	//       sdk.WithPlatformURL("http://localhost:10000"),
 	//   )
 	//   if err != nil {

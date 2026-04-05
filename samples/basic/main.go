@@ -1,8 +1,9 @@
 // Basic example -- the simplest possible Masflow module.
 //
 // This registers a single "greet" activity and runs the worker.
+// The platform provides Temporal connection details during registration.
 //
-//	go run . --temporal=localhost:7233
+//	go run . --platform=http://localhost:10000
 package main
 
 import (
@@ -46,10 +47,12 @@ func Greet(_ context.Context, in GreetInput) (GreetOutput, error) {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 func main() {
-	temporalAddr := flag.String("temporal", envOr("TEMPORAL_HOST", "localhost:7233"), "Temporal address")
-	temporalNS := flag.String("namespace", envOr("TEMPORAL_NAMESPACE", "default"), "Temporal namespace")
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL")
+	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	flag.Parse()
+
+	if *platformURL == "" {
+		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	}
 
 	// 1. Create module
 	mod := sdk.NewModule("greeter",
@@ -68,18 +71,11 @@ func main() {
 		sdk.WithCategory("demo"),
 	)
 
-	// 3. Build runner options
-	opts := []sdk.RunnerOption{
-		sdk.WithTemporalAddress(*temporalAddr),
-		sdk.WithTemporalNamespace(*temporalNS),
+	// 3. Run — platform provides Temporal connection details
+	runner, err := sdk.NewRunner(mod,
+		sdk.WithPlatformURL(*platformURL),
 		sdk.WithLogger(slog.New(slog.NewTextHandler(os.Stdout, nil))),
-	}
-	if *platformURL != "" {
-		opts = append(opts, sdk.WithPlatformURL(*platformURL))
-	}
-
-	// 4. Run
-	runner, err := sdk.NewRunner(mod, opts...)
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

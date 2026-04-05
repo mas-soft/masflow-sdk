@@ -2,8 +2,9 @@
 //
 // This demonstrates running two separate modules (email + analytics), each
 // with its own task queue and runner, in a single Go process using errgroup.
+// The platform provides Temporal connection details during registration.
 //
-//	go run . --temporal=localhost:7233
+//	go run . --platform=http://localhost:10000
 package main
 
 import (
@@ -98,10 +99,12 @@ func Aggregate(_ context.Context, in AggregateInput) (AggregateOutput, error) {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 func main() {
-	temporalAddr := flag.String("temporal", envOr("TEMPORAL_HOST", "localhost:7233"), "Temporal address")
-	temporalNS := flag.String("namespace", envOr("TEMPORAL_NAMESPACE", "default"), "Temporal namespace")
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL")
+	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	flag.Parse()
+
+	if *platformURL == "" {
+		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -155,16 +158,10 @@ func main() {
 	for _, mod := range []*sdk.Module{emailMod, analyticsMod} {
 		mod := mod
 		g.Go(func() error {
-			opts := []sdk.RunnerOption{
-				sdk.WithTemporalAddress(*temporalAddr),
-				sdk.WithTemporalNamespace(*temporalNS),
+			runner, err := sdk.NewRunner(mod,
+				sdk.WithPlatformURL(*platformURL),
 				sdk.WithLogger(logger.With("module", mod.Name)),
-			}
-			if *platformURL != "" {
-				opts = append(opts, sdk.WithPlatformURL(*platformURL))
-			}
-
-			runner, err := sdk.NewRunner(mod, opts...)
+			)
 			if err != nil {
 				return fmt.Errorf("create runner for %s: %w", mod.Name, err)
 			}

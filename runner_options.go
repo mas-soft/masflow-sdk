@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 )
 
@@ -14,47 +13,25 @@ import (
 type RunnerOption func(*runnerConfig)
 
 type runnerConfig struct {
-	temporalAddress   string
-	temporalNamespace string
-	temporalClient    client.Client // nil = create one from address/namespace
-	platformURL       string        // empty = skip platform registration
-	workflowURL       string        // empty = no WorkflowClient created
-	logger            *slog.Logger
-	shutdownTimeout   time.Duration
-	workerOptions     worker.Options
-	httpClient        *http.Client
-	connectOptions    []connect.ClientOption
+	platformURL     string // required — the masflow platform URL
+	workflowURL     string // empty = no WorkflowClient created
+	logger          *slog.Logger
+	shutdownTimeout time.Duration
+	workerOptions   worker.Options
+	httpClient      *http.Client
+	connectOptions  []connect.ClientOption
 }
 
 func defaultConfig() *runnerConfig {
 	return &runnerConfig{
-		temporalAddress:   "localhost:7233",
-		temporalNamespace: "default",
-		shutdownTimeout:   30 * time.Second,
-		logger:            slog.Default(),
-		httpClient:        http.DefaultClient,
+		shutdownTimeout: 30 * time.Second,
+		logger:          slog.Default(),
+		httpClient:      http.DefaultClient,
 	}
 }
 
-// WithTemporalAddress sets the Temporal server address (default: "localhost:7233").
-func WithTemporalAddress(addr string) RunnerOption {
-	return func(c *runnerConfig) { c.temporalAddress = addr }
-}
-
-// WithTemporalNamespace sets the Temporal namespace (default: "default").
-func WithTemporalNamespace(ns string) RunnerOption {
-	return func(c *runnerConfig) { c.temporalNamespace = ns }
-}
-
-// WithTemporalClient provides a pre-configured Temporal client.
-// When set, WithTemporalAddress and WithTemporalNamespace are ignored.
-func WithTemporalClient(tc client.Client) RunnerOption {
-	return func(c *runnerConfig) { c.temporalClient = tc }
-}
-
-// WithPlatformURL sets the masflow platform URL for module registration.
-// If not set, the module will not be registered with the platform
-// (useful for development or when running alongside the server in-process).
+// WithPlatformURL sets the masflow platform URL (required).
+// The platform returns Temporal connection details during module registration.
 func WithPlatformURL(url string) RunnerOption {
 	return func(c *runnerConfig) { c.platformURL = url }
 }
@@ -74,12 +51,12 @@ func WithWorkerOptions(opts worker.Options) RunnerOption {
 	return func(c *runnerConfig) { c.workerOptions = opts }
 }
 
-// WithHTTPClient sets the HTTP client used for platform registration.
+// WithHTTPClient sets the HTTP client used for platform and workflow communication.
 func WithHTTPClient(hc *http.Client) RunnerOption {
 	return func(c *runnerConfig) { c.httpClient = hc }
 }
 
-// WithConnectOptions adds Connect client options for platform registration.
+// WithConnectOptions adds Connect client options for platform communication.
 func WithConnectOptions(opts ...connect.ClientOption) RunnerOption {
 	return func(c *runnerConfig) { c.connectOptions = append(c.connectOptions, opts...) }
 }

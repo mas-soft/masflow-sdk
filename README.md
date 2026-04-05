@@ -39,8 +39,7 @@ go get github.com/mas-soft/masflow/sdk@latest
 
 **Requirements:**
 - Go 1.25+
-- A running [Temporal](https://temporal.io) server (the SDK connects as a worker)
-- A running Masflow platform instance (optional, for module discovery in the UI)
+- A running Masflow platform instance (provides Temporal connection details during module registration)
 
 ---
 
@@ -91,9 +90,8 @@ func main() {
         sdk.WithCategory("demo"),
     )
 
-    // 4. Run - connects to Temporal, starts worker, registers with platform
+    // 4. Run - registers with platform, receives Temporal config, starts worker
     runner, err := sdk.NewRunner(mod,
-        sdk.WithTemporalAddress("localhost:7233"),
         sdk.WithPlatformURL("http://localhost:10000"),
     )
     if err != nil {
@@ -105,7 +103,7 @@ func main() {
 }
 ```
 
-That's it. The SDK handles Temporal connection, worker lifecycle, JSON Schema generation, platform registration, and graceful shutdown.
+That's it. The platform provides Temporal connection details during registration. The SDK handles worker lifecycle, JSON Schema generation, platform registration, and graceful shutdown.
 
 ---
 
@@ -141,21 +139,28 @@ When a workflow step references your activity (e.g., `type: sendEmail`), Tempora
 ### Module Registration Flow
 
 ```
-Your Module                    Temporal Server              Masflow Platform
+Your Module                    Masflow Platform              Temporal Server
     |                               |                            |
-    |------ Connect Worker -------->|                            |
-    |       (task queue)            |                            |
-    |                               |                            |
-    |------ Register Module ---------------------------------->|
+    |------ Register Module ------->|                            |
     |       (name, activities,      |                            |
     |        schemas, metadata)     |                            |
     |                               |                            |
-    |<----- Dispatch Activity ------|                            |
+    |<----- Registration OK --------|                            |
+    |       (temporal_address,      |                            |
+    |        temporal_namespace)    |                            |
+    |                               |                            |
+    |------ Connect Worker ---------------------------------->|
+    |       (using platform-provided address & namespace)        |
+    |                               |                            |
+    |<----- Dispatch Activity --------------------------------|
     |       (when workflow runs)    |                            |
     |                               |                            |
-    |------ Return Result --------->|                            |
+    |------ Return Result ---------------------------------->|
     |                               |                            |
 ```
+
+> **Note:** Third-party modules never configure Temporal address or namespace directly.
+> The platform is the source of truth — it provides these values during registration.
 
 ---
 
@@ -328,8 +333,6 @@ The `Runner` is the batteries-included entry point that handles everything:
 
 ```go
 runner, err := sdk.NewRunner(mod,
-    sdk.WithTemporalAddress("localhost:7233"),
-    sdk.WithTemporalNamespace("bpm-namespace"),
     sdk.WithPlatformURL("http://localhost:10000"),
     sdk.WithLogger(slog.Default()),
 )
@@ -344,13 +347,14 @@ if err := runner.Run(context.Background()); err != nil {
 ```
 
 `Runner.Run()` performs these steps:
-1. Connects to Temporal (or uses a provided client)
-2. Creates a Temporal worker on the module's task queue
-3. Registers all activity handlers with the worker
-4. Starts the worker
-5. Registers the module with the Masflow platform (if URL configured)
-6. Blocks until context cancellation or SIGINT/SIGTERM
-7. On shutdown: unregisters from platform, stops worker, closes client
+1. Registers the module with the Masflow platform
+2. Receives Temporal address and namespace from the platform
+3. Connects to Temporal using the platform-provided config
+4. Creates a Temporal worker on the module's task queue
+5. Registers all activity handlers with the worker
+6. Starts the worker
+7. Blocks until context cancellation or SIGINT/SIGTERM
+8. On shutdown: unregisters from platform, stops worker, closes client
 
 ### Non-Blocking Mode
 
@@ -369,49 +373,19 @@ if err := runner.Start(ctx); err != nil {
 runner.Stop(context.Background())
 ```
 
-### Manual Worker Setup
-
-For full control over the Temporal worker (advanced):
-
-```go
-import (
-    sdk "github.com/mas-soft/masflow/sdk"
-    "go.temporal.io/sdk/client"
-    "go.temporal.io/sdk/worker"
-)
-
-// Create your own Temporal client
-tc, _ := client.Dial(client.Options{
-    HostPort:  "localhost:7233",
-    Namespace: "bpm-namespace",
-})
-defer tc.Close()
-
-// Create a worker
-w := worker.New(tc, mod.TaskQueue, worker.Options{})
-
-// Register all module activities
-sdk.RegisterAll(w, mod)
-
-// Start
-w.Start()
-defer w.Stop()
-```
-
 ### Runner Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `WithTemporalAddress(string)` | `localhost:7233` | Temporal server host:port |
-| `WithTemporalNamespace(string)` | `default` | Temporal namespace |
-| `WithTemporalClient(client.Client)` | — | Bring your own Temporal client (ignores address/namespace) |
-| `WithPlatformURL(string)` | — | Masflow platform URL for module registration. If empty, skips registration |
+| `WithPlatformURL(string)` | — | **Required.** Masflow platform URL. The platform provides Temporal connection details during registration |
 | `WithWorkflowURL(string)` | — | Masflow platform URL for WorkflowClient. Enables `runner.Workflows()` |
 | `WithLogger(*slog.Logger)` | `slog.Default()` | Structured logger |
 | `WithShutdownTimeout(time.Duration)` | `30s` | Max time for graceful shutdown |
 | `WithWorkerOptions(worker.Options)` | — | Pass-through Temporal worker options (concurrency, rate limits, etc.) |
-| `WithHTTPClient(*http.Client)` | `http.DefaultClient` | HTTP client for platform registration |
-| `WithConnectOptions(...connect.ClientOption)` | — | Connect client options for platform registration |
+| `WithHTTPClient(*http.Client)` | `http.DefaultClient` | HTTP client for platform communication |
+| `WithConnectOptions(...connect.ClientOption)` | — | Connect client options for platform communication |
+
+> **Note:** Temporal address and namespace are not configurable by third-party modules. The platform is the single source of truth for these values and returns them during module registration.
 
 ---
 
@@ -426,7 +400,7 @@ sdk.Register(emailMod, "sendEmail", SendEmail)
 smsMod := sdk.NewModule("sms", sdk.WithModuleTaskQueue("sms-queue"))
 sdk.Register(smsMod, "sendSMS", SendSMS)
 
-// Run each module with its own Runner
+// Run each module with its own Runner — each registers independently
 g, ctx := errgroup.WithContext(context.Background())
 
 g.Go(func() error {
@@ -448,25 +422,13 @@ Control concurrency, rate limits, and task polling:
 
 ```go
 runner, _ := sdk.NewRunner(mod,
-    sdk.WithTemporalAddress("temporal.prod.internal:7233"),
+    sdk.WithPlatformURL("http://masflow.internal:10000"),
     sdk.WithWorkerOptions(worker.Options{
         MaxConcurrentActivityExecutionSize:      20,
         MaxConcurrentActivityTaskPollers:        4,
         WorkerActivitiesPerSecond:               100,
     }),
 )
-```
-
-### Development Mode (No Platform)
-
-During development, you may not have the Masflow platform running. Simply omit `WithPlatformURL` -- the worker will still process activities when workflows dispatch them:
-
-```go
-runner, _ := sdk.NewRunner(mod,
-    sdk.WithTemporalAddress("localhost:7233"),
-    // No WithPlatformURL -- works standalone with just Temporal
-)
-runner.Run(ctx)
 ```
 
 ### Inspecting Generated Schemas
@@ -522,7 +484,7 @@ It has **zero dependency** on the Masflow server codebase (`github.com/mas-soft/
 
 ### Proto Contract
 
-The SDK includes a vendored copy of the `activity.proto` contract from the server. This defines the `ModuleRegistry` gRPC service used for platform registration. The generated code is placed in `internal/activitypb/` so it is not exposed to SDK consumers.
+The SDK includes a vendored copy of the `activity.proto` and `workflow.proto` contracts from the server. These define the `ModuleRegistry` and `WorkflowService` gRPC services. The generated code is placed in `internal/pb/` so it is not exposed to SDK consumers.
 
 To regenerate after a proto change:
 ```bash
@@ -560,7 +522,7 @@ sdk.RegisterAsync[TReq, TRes](mod, name, handler, opts...) error
 ### Runner
 
 ```go
-// Create runner
+// Create runner (WithPlatformURL is required)
 runner, err := sdk.NewRunner(mod, opts...) (*Runner, error)
 
 // Blocking run (with signal handling)
@@ -572,13 +534,6 @@ runner.Stop(ctx context.Context) error
 
 // Access integrated WorkflowClient (requires WithWorkflowURL)
 runner.Workflows() *WorkflowClient
-```
-
-### Worker
-
-```go
-// Register all module activities with a Temporal worker (advanced/manual use)
-sdk.RegisterAll(w worker.Worker, m *Module)
 ```
 
 ### Handler Signatures
@@ -615,7 +570,6 @@ wc := sdk.NewWorkflowClient("http://localhost:10000",
 
 ```go
 runner, _ := sdk.NewRunner(mod,
-    sdk.WithTemporalAddress("localhost:7233"),
     sdk.WithPlatformURL("http://localhost:10000"),
     sdk.WithWorkflowURL("http://localhost:10000"),
 )
@@ -812,16 +766,14 @@ These are commonly set when deploying a module service:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `TEMPORAL_HOST` | Temporal server address | `localhost:7233` |
-| `TEMPORAL_NAMESPACE` | Temporal namespace | `default` |
-| `MASFLOW_PLATFORM_URL` | Masflow platform Connect endpoint | — |
+| `MASFLOW_PLATFORM_URL` | Masflow platform Connect endpoint | — (required) |
+
+> **Note:** Temporal address and namespace are not configured by modules. The platform provides these during registration.
 
 Example `main.go` reading from environment:
 
 ```go
 runner, _ := sdk.NewRunner(mod,
-    sdk.WithTemporalAddress(os.Getenv("TEMPORAL_HOST")),
-    sdk.WithTemporalNamespace(os.Getenv("TEMPORAL_NAMESPACE")),
     sdk.WithPlatformURL(os.Getenv("MASFLOW_PLATFORM_URL")),
 )
 ```
@@ -849,23 +801,35 @@ services:
   my-module:
     build: .
     environment:
-      TEMPORAL_HOST: temporal:7233
-      TEMPORAL_NAMESPACE: bpm-namespace
       MASFLOW_PLATFORM_URL: http://bpm-service:10000
     depends_on:
-      - temporal
+      - bpm-service
 ```
 
 ---
 
 ## Troubleshooting
 
+### "platform URL is required"
+
+`WithPlatformURL` is required when creating a Runner. The platform provides Temporal connection details during registration:
+```go
+sdk.NewRunner(mod, sdk.WithPlatformURL("http://localhost:10000"))
+```
+
+### "failed to register with masflow platform"
+
+The platform is not reachable. This is fatal — the module cannot start without platform registration. Verify:
+- Platform URL is correct
+- Platform service is running
+- Network/firewall rules allow the connection
+
 ### "failed to connect to Temporal"
 
-The Temporal server is not reachable. Verify:
-- Temporal is running (`docker ps` or check your deployment)
-- The address is correct (default: `localhost:7233`)
-- Network/firewall rules allow the connection
+The Temporal server address returned by the platform is not reachable. This is a platform-side configuration issue. Verify:
+- Temporal is running
+- The platform's Temporal configuration is correct
+- Network between your module and Temporal allows the connection
 
 ### "module task queue is required"
 
@@ -877,13 +841,6 @@ sdk.NewModule("my-module", sdk.WithModuleTaskQueue("my-task-queue"))
 ### "activity X is already registered"
 
 You're registering the same activity name twice in one module. Activity names must be unique within a module.
-
-### Platform registration fails but worker starts
-
-This is a warning, not an error. The module will still process activities dispatched via Temporal. Platform registration is for UI discovery -- activities work regardless. Check:
-- Platform URL is correct
-- Platform service is running
-- Network connectivity
 
 ### Activities not being picked up
 
