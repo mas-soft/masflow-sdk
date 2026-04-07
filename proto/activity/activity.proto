@@ -41,8 +41,8 @@ message ActivityDefinition {
   string icon = 3;
   string input_type_url = 4;
   string output_type_url = 5;
-  google.protobuf.Any input_schema = 6;
-  google.protobuf.Any output_schema = 7;
+  string input_schema = 6;
+  string output_schema = 7;
   bool supports_async = 8;
   string task_queue = 9;
   ActivityMetadata metadata = 10;

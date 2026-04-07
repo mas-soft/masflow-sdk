@@ -2,7 +2,6 @@ package masflowsdk
 
 import (
 	pb "github.com/mas-soft/masflow/sdk/internal/pb/activity"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Definition describes a single activity's contract and holds its handler.
@@ -39,25 +38,10 @@ func (d *Definition) toProto() *pb.ActivityDefinition {
 		},
 	}
 
-	if d.InputSchemaJSON != nil {
-		ad.InputSchema = schemaToAny(d.InputSchemaJSON)
-	}
-	if d.OutputSchemaJSON != nil {
-		ad.OutputSchema = schemaToAny(d.OutputSchemaJSON)
-	}
+	ad.InputSchema = string(d.InputSchemaJSON)
+	ad.OutputSchema = string(d.OutputSchemaJSON)
 
 	return ad
-}
-
-// schemaToAny wraps JSON Schema bytes in a protobuf Any.
-func schemaToAny(schemaJSON []byte) *anypb.Any {
-	if schemaJSON == nil {
-		return nil
-	}
-	return &anypb.Any{
-		TypeUrl: "type.googleapis.com/json-schema",
-		Value:   schemaJSON,
-	}
 }
 
 // ActivityOption configures a Definition.

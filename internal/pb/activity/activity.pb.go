@@ -214,8 +214,8 @@ type ActivityDefinition struct {
 	Icon          string                 `protobuf:"bytes,3,opt,name=icon,proto3" json:"icon,omitempty"`
 	InputTypeUrl  string                 `protobuf:"bytes,4,opt,name=input_type_url,json=inputTypeUrl,proto3" json:"input_type_url,omitempty"`
 	OutputTypeUrl string                 `protobuf:"bytes,5,opt,name=output_type_url,json=outputTypeUrl,proto3" json:"output_type_url,omitempty"`
-	InputSchema   *anypb.Any             `protobuf:"bytes,6,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	OutputSchema  *anypb.Any             `protobuf:"bytes,7,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
+	InputSchema   string                 `protobuf:"bytes,6,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	OutputSchema  string                 `protobuf:"bytes,7,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
 	SupportsAsync bool                   `protobuf:"varint,8,opt,name=supports_async,json=supportsAsync,proto3" json:"supports_async,omitempty"`
 	TaskQueue     string                 `protobuf:"bytes,9,opt,name=task_queue,json=taskQueue,proto3" json:"task_queue,omitempty"`
 	Metadata      *ActivityMetadata      `protobuf:"bytes,10,opt,name=metadata,proto3" json:"metadata,omitempty"`
@@ -288,18 +288,18 @@ func (x *ActivityDefinition) GetOutputTypeUrl() string {
 	return ""
 }
 
-func (x *ActivityDefinition) GetInputSchema() *anypb.Any {
+func (x *ActivityDefinition) GetInputSchema() string {
 	if x != nil {
 		return x.InputSchema
 	}
-	return nil
+	return ""
 }
 
-func (x *ActivityDefinition) GetOutputSchema() *anypb.Any {
+func (x *ActivityDefinition) GetOutputSchema() string {
 	if x != nil {
 		return x.OutputSchema
 	}
-	return nil
+	return ""
 }
 
 func (x *ActivityDefinition) GetSupportsAsync() bool {
@@ -1190,15 +1190,15 @@ const file_activity_activity_proto_rawDesc = "" +
 	"\rregistered_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x9e\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf2\x02\n" +
 	"\x12ActivityDefinition\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04icon\x18\x03 \x01(\tR\x04icon\x12$\n" +
 	"\x0einput_type_url\x18\x04 \x01(\tR\finputTypeUrl\x12&\n" +
-	"\x0foutput_type_url\x18\x05 \x01(\tR\routputTypeUrl\x127\n" +
-	"\finput_schema\x18\x06 \x01(\v2\x14.google.protobuf.AnyR\vinputSchema\x129\n" +
-	"\routput_schema\x18\a \x01(\v2\x14.google.protobuf.AnyR\foutputSchema\x12%\n" +
+	"\x0foutput_type_url\x18\x05 \x01(\tR\routputTypeUrl\x12!\n" +
+	"\finput_schema\x18\x06 \x01(\tR\vinputSchema\x12#\n" +
+	"\routput_schema\x18\a \x01(\tR\foutputSchema\x12%\n" +
 	"\x0esupports_async\x18\b \x01(\bR\rsupportsAsync\x12\x1d\n" +
 	"\n" +
 	"task_queue\x18\t \x01(\tR\ttaskQueue\x126\n" +
@@ -1323,38 +1323,36 @@ var file_activity_activity_proto_depIdxs = []int32{
 	2,  // 1: activity.Module.activities:type_name -> activity.ActivityDefinition
 	19, // 2: activity.ModuleMetadata.labels:type_name -> activity.ModuleMetadata.LabelsEntry
 	22, // 3: activity.ModuleMetadata.registered_at:type_name -> google.protobuf.Timestamp
-	23, // 4: activity.ActivityDefinition.input_schema:type_name -> google.protobuf.Any
-	23, // 5: activity.ActivityDefinition.output_schema:type_name -> google.protobuf.Any
-	3,  // 6: activity.ActivityDefinition.metadata:type_name -> activity.ActivityMetadata
-	20, // 7: activity.ActivityMetadata.labels:type_name -> activity.ActivityMetadata.LabelsEntry
-	0,  // 8: activity.RegisterModuleRequest.module:type_name -> activity.Module
-	0,  // 9: activity.ListModulesResponse.modules:type_name -> activity.Module
-	0,  // 10: activity.GetModuleResponse.module:type_name -> activity.Module
-	2,  // 11: activity.ListActivitiesResponse.activities:type_name -> activity.ActivityDefinition
-	2,  // 12: activity.GetActivityResponse.activity:type_name -> activity.ActivityDefinition
-	23, // 13: activity.ExecuteActivityRequest.input:type_name -> google.protobuf.Any
-	21, // 14: activity.ExecuteActivityRequest.metadata:type_name -> activity.ExecuteActivityRequest.MetadataEntry
-	4,  // 15: activity.ExecuteActivityRequest.async_context:type_name -> activity.AsyncCallbackContext
-	23, // 16: activity.ExecuteActivityResponse.output:type_name -> google.protobuf.Any
-	5,  // 17: activity.ModuleRegistry.RegisterModule:input_type -> activity.RegisterModuleRequest
-	7,  // 18: activity.ModuleRegistry.UnregisterModule:input_type -> activity.UnregisterModuleRequest
-	9,  // 19: activity.ModuleRegistry.ListModules:input_type -> activity.ListModulesRequest
-	11, // 20: activity.ModuleRegistry.GetModule:input_type -> activity.GetModuleRequest
-	13, // 21: activity.ModuleRegistry.ListActivities:input_type -> activity.ListActivitiesRequest
-	15, // 22: activity.ModuleRegistry.GetActivity:input_type -> activity.GetActivityRequest
-	17, // 23: activity.ActivityExecutor.Execute:input_type -> activity.ExecuteActivityRequest
-	6,  // 24: activity.ModuleRegistry.RegisterModule:output_type -> activity.RegisterModuleResponse
-	8,  // 25: activity.ModuleRegistry.UnregisterModule:output_type -> activity.UnregisterModuleResponse
-	10, // 26: activity.ModuleRegistry.ListModules:output_type -> activity.ListModulesResponse
-	12, // 27: activity.ModuleRegistry.GetModule:output_type -> activity.GetModuleResponse
-	14, // 28: activity.ModuleRegistry.ListActivities:output_type -> activity.ListActivitiesResponse
-	16, // 29: activity.ModuleRegistry.GetActivity:output_type -> activity.GetActivityResponse
-	18, // 30: activity.ActivityExecutor.Execute:output_type -> activity.ExecuteActivityResponse
-	24, // [24:31] is the sub-list for method output_type
-	17, // [17:24] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	3,  // 4: activity.ActivityDefinition.metadata:type_name -> activity.ActivityMetadata
+	20, // 5: activity.ActivityMetadata.labels:type_name -> activity.ActivityMetadata.LabelsEntry
+	0,  // 6: activity.RegisterModuleRequest.module:type_name -> activity.Module
+	0,  // 7: activity.ListModulesResponse.modules:type_name -> activity.Module
+	0,  // 8: activity.GetModuleResponse.module:type_name -> activity.Module
+	2,  // 9: activity.ListActivitiesResponse.activities:type_name -> activity.ActivityDefinition
+	2,  // 10: activity.GetActivityResponse.activity:type_name -> activity.ActivityDefinition
+	23, // 11: activity.ExecuteActivityRequest.input:type_name -> google.protobuf.Any
+	21, // 12: activity.ExecuteActivityRequest.metadata:type_name -> activity.ExecuteActivityRequest.MetadataEntry
+	4,  // 13: activity.ExecuteActivityRequest.async_context:type_name -> activity.AsyncCallbackContext
+	23, // 14: activity.ExecuteActivityResponse.output:type_name -> google.protobuf.Any
+	5,  // 15: activity.ModuleRegistry.RegisterModule:input_type -> activity.RegisterModuleRequest
+	7,  // 16: activity.ModuleRegistry.UnregisterModule:input_type -> activity.UnregisterModuleRequest
+	9,  // 17: activity.ModuleRegistry.ListModules:input_type -> activity.ListModulesRequest
+	11, // 18: activity.ModuleRegistry.GetModule:input_type -> activity.GetModuleRequest
+	13, // 19: activity.ModuleRegistry.ListActivities:input_type -> activity.ListActivitiesRequest
+	15, // 20: activity.ModuleRegistry.GetActivity:input_type -> activity.GetActivityRequest
+	17, // 21: activity.ActivityExecutor.Execute:input_type -> activity.ExecuteActivityRequest
+	6,  // 22: activity.ModuleRegistry.RegisterModule:output_type -> activity.RegisterModuleResponse
+	8,  // 23: activity.ModuleRegistry.UnregisterModule:output_type -> activity.UnregisterModuleResponse
+	10, // 24: activity.ModuleRegistry.ListModules:output_type -> activity.ListModulesResponse
+	12, // 25: activity.ModuleRegistry.GetModule:output_type -> activity.GetModuleResponse
+	14, // 26: activity.ModuleRegistry.ListActivities:output_type -> activity.ListActivitiesResponse
+	16, // 27: activity.ModuleRegistry.GetActivity:output_type -> activity.GetActivityResponse
+	18, // 28: activity.ActivityExecutor.Execute:output_type -> activity.ExecuteActivityResponse
+	22, // [22:29] is the sub-list for method output_type
+	15, // [15:22] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_activity_activity_proto_init() }
