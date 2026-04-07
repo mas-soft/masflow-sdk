@@ -95,11 +95,11 @@ func (r *Runner) Workflows() *WorkflowClient {
 
 // Run starts the worker, registers with the platform,
 // and blocks until ctx is cancelled or a termination signal (SIGINT/SIGTERM) is received.
-func (r *Runner) Run(ctx context.Context) error {
+func (r *Runner) Run(ctx context.Context, overwriteTemporalAddress *string) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	if err := r.Start(ctx); err != nil {
+	if err := r.Start(ctx, overwriteTemporalAddress); err != nil {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (r *Runner) Run(ctx context.Context) error {
 // Start registers with the platform to obtain Temporal config,
 // connects to Temporal, and starts the worker.
 // Call Stop() to shut down. For a blocking version, use Run().
-func (r *Runner) Start(ctx context.Context) error {
+func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress *string) error {
 	if r.temporalClient != nil || r.worker != nil || r.registered {
 		return fmt.Errorf("runner already started")
 	}
@@ -135,6 +135,10 @@ func (r *Runner) Start(ctx context.Context) error {
 
 	temporalAddr := resp.GetTemporalAddress()
 	temporalNS := resp.GetTemporalNamespace()
+
+	if overwriteTemporalAddress != nil && *overwriteTemporalAddress != "" {
+		temporalAddr = *overwriteTemporalAddress
+	}
 
 	r.logger.Info("Registered with masflow platform",
 		"module", resp.GetModuleName(),

@@ -55,10 +55,13 @@ func main() {
 	execute := flag.Bool("execute", true, "Execute a sample greeting workflow after starting the worker")
 	yamlFile := flag.String("yaml", "workflows/greeting.yaml", "Path to workflow YAML file (used with --execute)")
 	name := flag.String("name", "World", "Name to greet (used with --execute)")
+	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 	flag.Parse()
 
 	if *platformURL == "" {
 		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	} else {
+		log.Printf("Using platform URL: %s", *platformURL)
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -92,7 +95,8 @@ func main() {
 
 	// If --execute, start worker in background, run a workflow, then keep running
 	if *execute {
-		if err := runner.Start(context.Background()); err != nil {
+
+		if err := runner.Start(context.Background(), temporalAddr); err != nil {
 			log.Fatalf("Failed to start runner: %v", err)
 		}
 
@@ -107,7 +111,7 @@ func main() {
 	}
 
 	// Normal mode: just run the worker and block
-	if err := runner.Run(context.Background()); err != nil {
+	if err := runner.Run(context.Background(), temporalAddr); err != nil {
 		log.Fatal(err)
 	}
 }
