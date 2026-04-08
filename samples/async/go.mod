@@ -1,8 +1,8 @@
-module github.com/mas-soft/masflow/sdk/samples/async
+module github.com/mas-soft/masflow-sdk/samples/async
 
 go 1.25.0
 
-require github.com/mas-soft/masflow/sdk v0.0.0
+require github.com/mas-soft/masflow-sdk v0.0.0
 
 require (
 	connectrpc.com/connect v1.19.1 // indirect
@@ -37,4 +37,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/mas-soft/masflow/sdk => ../..
+replace github.com/mas-soft/masflow-sdk => ../..

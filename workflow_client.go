@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
-	pb "github.com/mas-soft/masflow/sdk/internal/pb/workflow"
-	pbconnect "github.com/mas-soft/masflow/sdk/internal/pb/workflow/workflowconnect"
+	pb "github.com/mas-soft/masflow-sdk/internal/pb/workflow"
+	pbconnect "github.com/mas-soft/masflow-sdk/internal/pb/workflow/workflowconnect"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 )

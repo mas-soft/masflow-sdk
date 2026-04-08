@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	sdk "github.com/mas-soft/masflow/sdk"
+	sdk "github.com/mas-soft/masflow-sdk"
 )
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -133,6 +133,7 @@ func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	execute := flag.Bool("execute", false, "Execute an approval workflow and auto-signal completion")
 	yamlFile := flag.String("yaml", "workflows/approval-flow.yaml", "Path to workflow YAML file (used with --execute)")
+	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -186,7 +187,7 @@ func main() {
 	)
 
 	if *execute {
-		if err := runner.Start(context.Background()); err != nil {
+		if err := runner.Start(context.Background(), temporalAddr); err != nil {
 			log.Fatalf("Failed to start runner: %v", err)
 		}
 
@@ -197,7 +198,7 @@ func main() {
 		select {}
 	}
 
-	if err := runner.Run(context.Background()); err != nil {
+	if err := runner.Run(context.Background(), temporalAddr); err != nil {
 		log.Fatal(err)
 	}
 }

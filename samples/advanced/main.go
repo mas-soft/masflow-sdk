@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	sdk "github.com/mas-soft/masflow/sdk"
+	sdk "github.com/mas-soft/masflow-sdk"
 )
 
 func main() {

@@ -3,7 +3,7 @@ package masflowsdk
 import (
 	"testing"
 
-	pb "github.com/mas-soft/masflow/sdk/internal/pb/workflow"
+	pb "github.com/mas-soft/masflow-sdk/internal/pb/workflow"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

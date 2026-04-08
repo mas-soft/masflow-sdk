@@ -22,7 +22,7 @@ import (
 	"syscall"
 	"time"
 
-	sdk "github.com/mas-soft/masflow/sdk"
+	sdk "github.com/mas-soft/masflow-sdk"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -106,6 +106,7 @@ func main() {
 	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
 	execute := flag.Bool("execute", false, "Execute a cross-module onboarding workflow after starting workers")
 	yamlFile := flag.String("yaml", "workflows/cross-module.yaml", "Path to workflow YAML file (used with --execute)")
+	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 	flag.Parse()
 
 	if *platformURL == "" {
@@ -173,7 +174,7 @@ func main() {
 			}
 
 			logger.Info("Starting module", "module", mod.Name, "task_queue", mod.TaskQueue)
-			if err := runner.Start(ctx); err != nil {
+			if err := runner.Start(ctx, temporalAddr); err != nil {
 				log.Fatalf("Failed to start %s: %v", mod.Name, err)
 			}
 			runners = append(runners, runner)
@@ -212,7 +213,7 @@ func main() {
 				"activities", len(mod.Activities()),
 			)
 
-			return runner.Run(gctx)
+			return runner.Run(gctx, temporalAddr)
 		})
 	}
 

@@ -7,15 +7,16 @@
 package workflow
 
 import (
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	_ "google.golang.org/protobuf/types/known/anypb"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -4274,7 +4275,7 @@ const file_workflow_workflow_proto_rawDesc = "" +
 	"\rPauseWorkflow\x12\x1e.workflow.PauseWorkflowRequest\x1a\x1f.workflow.PauseWorkflowResponse\x12S\n" +
 	"\x0eResumeWorkflow\x12\x1f.workflow.ResumeWorkflowRequest\x1a .workflow.ResumeWorkflowResponse\x12V\n" +
 	"\x0fSearchWorkflows\x12 .workflow.SearchWorkflowsRequest\x1a!.workflow.SearchWorkflowsResponse\x12Y\n" +
-	"\x10ValidateWorkflow\x12!.workflow.ValidateWorkflowRequest\x1a\".workflow.ValidateWorkflowResponseB6Z4github.com/mas-soft/masflow/sdk/internal/pb/workflowb\x06proto3"
+	"\x10ValidateWorkflow\x12!.workflow.ValidateWorkflowRequest\x1a\".workflow.ValidateWorkflowResponseB6Z4github.com/mas-soft/masflow-sdk/internal/pb/workflowb\x06proto3"
 
 var (
 	file_workflow_workflow_proto_rawDescOnce sync.Once

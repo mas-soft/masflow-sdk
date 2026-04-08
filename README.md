@@ -34,7 +34,7 @@ The Masflow SDK is a standalone Go module that lets you create custom activity m
 ## Installation
 
 ```bash
-go get github.com/mas-soft/masflow/sdk@latest
+go get github.com/mas-soft/masflow-sdk@latest
 ```
 
 **Requirements:**
@@ -57,7 +57,7 @@ import (
     "log"
     "time"
 
-    sdk "github.com/mas-soft/masflow/sdk"
+    sdk "github.com/mas-soft/masflow-sdk"
 )
 
 // 1. Define input/output types as plain Go structs with json tags

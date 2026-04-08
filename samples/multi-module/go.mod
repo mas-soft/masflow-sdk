@@ -1,9 +1,9 @@
-module github.com/mas-soft/masflow/sdk/samples/multi-module
+module github.com/mas-soft/masflow-sdk/samples/multi-module
 
 go 1.25.0
 
 require (
-	github.com/mas-soft/masflow/sdk v0.0.0
+	github.com/mas-soft/masflow-sdk v0.0.0
 	golang.org/x/sync v0.14.0
 )
 
@@ -39,4 +39,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/mas-soft/masflow/sdk => ../..
+replace github.com/mas-soft/masflow-sdk => ../..

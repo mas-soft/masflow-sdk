@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/mas-soft/masflow/sdk"
+	sdk "github.com/mas-soft/masflow-sdk"
 )
 
 // SendEmailInput is the input for the sendEmail activity.

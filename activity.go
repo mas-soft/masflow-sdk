@@ -1,7 +1,7 @@
 package masflowsdk
 
 import (
-	pb "github.com/mas-soft/masflow/sdk/internal/pb/activity"
+	pb "github.com/mas-soft/masflow-sdk/internal/pb/activity"
 )
 
 // Definition describes a single activity's contract and holds its handler.

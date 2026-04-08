@@ -1,10 +1,11 @@
-module github.com/mas-soft/masflow/sdk
+module github.com/mas-soft/masflow-sdk
 
 go 1.25.0
 
 require (
 	connectrpc.com/connect v1.19.1
 	github.com/invopop/jsonschema v0.13.0
+	github.com/nexus-rpc/sdk-go v0.3.0
 	go.temporal.io/sdk v1.36.0
 	golang.org/x/net v0.40.0
 	google.golang.org/grpc v1.74.2
@@ -22,7 +23,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/nexus-rpc/sdk-go v0.3.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

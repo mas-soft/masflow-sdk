@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"connectrpc.com/connect"
-	"github.com/mas-soft/masflow/sdk/platform"
+	"github.com/mas-soft/masflow-sdk/platform"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 )

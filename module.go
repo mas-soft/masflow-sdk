@@ -3,7 +3,7 @@ package masflowsdk
 import (
 	"time"
 
-	pb "github.com/mas-soft/masflow/sdk/internal/pb/activity"
+	pb "github.com/mas-soft/masflow-sdk/internal/pb/activity"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
