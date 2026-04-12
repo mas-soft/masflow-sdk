@@ -2,16 +2,16 @@
 //
 // Demonstrates multiple activity types (sync, void), rich metadata,
 // input validation, structured error handling, and workflow execution.
-// The platform provides Temporal connection details during registration.
+// The server provides Temporal connection details during registration.
 //
 //	# Worker only:
-//	go run . --platform=http://localhost:9999
+//	go run . --server=http://localhost:9999
 //
 //	# Worker + execute a workflow:
-//	go run . --platform=http://localhost:9999 --execute
+//	go run . --server=http://localhost:9999 --execute
 //
 //	# Execute workflow from YAML file:
-//	go run . --platform=http://localhost:9999 --execute --yaml workflows/order-notifications.yaml
+//	go run . --server=http://localhost:9999 --execute --yaml workflows/order-notifications.yaml
 package main
 
 import (
@@ -27,15 +27,14 @@ import (
 )
 
 func main() {
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	serverURL := flag.String("server", envOr("MASFLOW_SERVER_URL", ""), "Masflow server URL (required)")
 	execute := flag.Bool("execute", true, "Execute a sample notification workflow after starting the worker")
 	yamlFile := flag.String("yaml", "workflows/order-notifications.yaml", "Path to workflow YAML file (used with --execute)")
-	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 
 	flag.Parse()
 
-	if *platformURL == "" {
-		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	if *serverURL == "" {
+		log.Fatal("--server (or MASFLOW_SERVER_URL) is required")
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -93,8 +92,7 @@ func main() {
 	// ── Runner ───────────────────────────────────────────────────────────
 
 	runner, err := sdk.NewRunner(mod,
-		sdk.WithPlatformURL(*platformURL),
-		sdk.WithWorkflowURL(*platformURL),
+		sdk.WithServerURL(*serverURL),
 		sdk.WithLogger(logger),
 	)
 	if err != nil {
@@ -102,13 +100,13 @@ func main() {
 	}
 
 	logger.Info("Starting notifications module",
-		"platform", *platformURL,
+		"server", *serverURL,
 		"task_queue", mod.TaskQueue,
 		"activities", len(mod.Activities()),
 	)
 
 	if *execute {
-		if err := runner.Start(context.Background(), temporalAddr); err != nil {
+		if err := runner.Start(context.Background()); err != nil {
 			log.Fatalf("Failed to start runner: %v", err)
 		}
 
@@ -119,7 +117,7 @@ func main() {
 		select {}
 	}
 
-	if err := runner.Run(context.Background(), temporalAddr); err != nil {
+	if err := runner.Run(context.Background()); err != nil {
 		log.Fatalf("Runner error: %v", err)
 	}
 }
@@ -128,7 +126,7 @@ func main() {
 // and monitors it to completion.
 func executeNotificationWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile string) {
 	if wc == nil {
-		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		logger.Error("WorkflowClient not available (WithServerURL not set)")
 		return
 	}
 

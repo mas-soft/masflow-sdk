@@ -33,7 +33,8 @@ type Runner struct {
 }
 
 // NewRunner creates a Runner for the given module.
-// WithPlatformURL is required — the platform provides Temporal connection details.
+// WithServerURL (or the deprecated WithPlatformURL) is required — the server provides
+// platform registration, workflow service, and Temporal gRPC proxy on a single address.
 func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 	if m == nil {
 		return nil, fmt.Errorf("module is required")
@@ -51,7 +52,12 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 	}
 
 	if cfg.platformURL == "" {
-		return nil, fmt.Errorf("platform URL is required (use WithPlatformURL)")
+		return nil, fmt.Errorf("server URL is required (use WithServerURL)")
+	}
+
+	// When serverURL is set, auto-populate workflowURL if not explicitly overridden.
+	if cfg.serverURL != "" && cfg.workflowURL == "" {
+		cfg.workflowURL = cfg.serverURL
 	}
 
 	useGRPC := shouldUseGRPC(cfg.platformURL, cfg.protocol)
@@ -88,18 +94,18 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 }
 
 // Workflows returns the WorkflowClient for executing and managing workflows.
-// Returns nil if WithWorkflowURL was not configured.
+// Returns nil if neither WithServerURL nor WithWorkflowURL was configured.
 func (r *Runner) Workflows() *WorkflowClient {
 	return r.workflowClient
 }
 
 // Run starts the worker, registers with the platform,
 // and blocks until ctx is cancelled or a termination signal (SIGINT/SIGTERM) is received.
-func (r *Runner) Run(ctx context.Context, overwriteTemporalAddress *string) error {
+func (r *Runner) Run(ctx context.Context, overwriteTemporalAddress ...*string) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	if err := r.Start(ctx, overwriteTemporalAddress); err != nil {
+	if err := r.Start(ctx, overwriteTemporalAddress...); err != nil {
 		return err
 	}
 
@@ -115,7 +121,10 @@ func (r *Runner) Run(ctx context.Context, overwriteTemporalAddress *string) erro
 // Start registers with the platform to obtain Temporal config,
 // connects to Temporal, and starts the worker.
 // Call Stop() to shut down. For a blocking version, use Run().
-func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress *string) error {
+//
+// The optional overwriteTemporalAddress is deprecated — the server now proxies
+// Temporal traffic on the same address. It is kept for backward compatibility only.
+func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress ...*string) error {
 	if r.temporalClient != nil || r.worker != nil || r.registered {
 		return fmt.Errorf("runner already started")
 	}
@@ -136,8 +145,9 @@ func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress *string) er
 	temporalAddr := resp.GetTemporalAddress()
 	temporalNS := resp.GetTemporalNamespace()
 
-	if overwriteTemporalAddress != nil && *overwriteTemporalAddress != "" {
-		temporalAddr = *overwriteTemporalAddress
+	// Deprecated: honour legacy overwrite if provided and non-empty.
+	if len(overwriteTemporalAddress) > 0 && overwriteTemporalAddress[0] != nil && *overwriteTemporalAddress[0] != "" {
+		temporalAddr = *overwriteTemporalAddress[0]
 	}
 
 	r.logger.Info("Registered with masflow platform",

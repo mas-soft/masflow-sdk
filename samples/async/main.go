@@ -3,13 +3,13 @@
 // Async activities start long-running work (e.g., creating a Jira ticket,
 // requesting human approval) and return immediately. The workflow pauses
 // until an external system signals completion using the callback info.
-// The platform provides Temporal connection details during registration.
+// The server provides Temporal connection details during registration.
 //
 //	# Worker only:
-//	go run . --platform=http://localhost:9999
+//	go run . --server=http://localhost:9999
 //
 //	# Worker + execute workflow + auto-signal approval:
-//	go run . --platform=http://localhost:9999 --execute
+//	go run . --server=http://localhost:9999 --execute
 package main
 
 import (
@@ -130,14 +130,13 @@ func NotifyComplete(_ context.Context, in NotifyInput) (NotifyOutput, error) {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 func main() {
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	serverURL := flag.String("server", envOr("MASFLOW_SERVER_URL", ""), "Masflow server URL (required)")
 	execute := flag.Bool("execute", false, "Execute an approval workflow and auto-signal completion")
 	yamlFile := flag.String("yaml", "workflows/approval-flow.yaml", "Path to workflow YAML file (used with --execute)")
-	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 	flag.Parse()
 
-	if *platformURL == "" {
-		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	if *serverURL == "" {
+		log.Fatal("--server (or MASFLOW_SERVER_URL) is required")
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -173,8 +172,7 @@ func main() {
 	)
 
 	runner, err := sdk.NewRunner(mod,
-		sdk.WithPlatformURL(*platformURL),
-		sdk.WithWorkflowURL(*platformURL),
+		sdk.WithServerURL(*serverURL),
 		sdk.WithLogger(logger),
 	)
 	if err != nil {
@@ -187,7 +185,7 @@ func main() {
 	)
 
 	if *execute {
-		if err := runner.Start(context.Background(), temporalAddr); err != nil {
+		if err := runner.Start(context.Background()); err != nil {
 			log.Fatalf("Failed to start runner: %v", err)
 		}
 
@@ -198,7 +196,7 @@ func main() {
 		select {}
 	}
 
-	if err := runner.Run(context.Background(), temporalAddr); err != nil {
+	if err := runner.Run(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -207,7 +205,7 @@ func main() {
 // signaling an async activity to simulate external approval.
 func executeApprovalWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile string) {
 	if wc == nil {
-		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		logger.Error("WorkflowClient not available (WithServerURL not set)")
 		return
 	}
 

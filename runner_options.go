@@ -13,8 +13,9 @@ import (
 type RunnerOption func(*runnerConfig)
 
 type runnerConfig struct {
-	platformURL     string // required — the masflow platform URL
-	workflowURL     string // empty = no WorkflowClient created
+	serverURL       string // required — the masflow server URL (platform + workflow + temporal proxy)
+	platformURL     string // deprecated — use serverURL
+	workflowURL     string // deprecated — use serverURL
 	logger          *slog.Logger
 	shutdownTimeout time.Duration
 	workerOptions   worker.Options
@@ -32,8 +33,19 @@ func defaultConfig() *runnerConfig {
 	}
 }
 
-// WithPlatformURL sets the masflow platform URL (required).
-// The platform returns Temporal connection details during module registration.
+// WithServerURL sets the masflow server URL (required).
+// The server hosts the platform registry, workflow service, and Temporal gRPC proxy
+// on a single address. This replaces WithPlatformURL and WithWorkflowURL.
+func WithServerURL(url string) RunnerOption {
+	return func(c *runnerConfig) {
+		c.serverURL = url
+		c.platformURL = url
+		c.workflowURL = url
+	}
+}
+
+// WithPlatformURL sets the masflow platform URL.
+// Deprecated: Use WithServerURL instead — the server now hosts everything on one address.
 func WithPlatformURL(url string) RunnerOption {
 	return func(c *runnerConfig) { c.platformURL = url }
 }

@@ -78,10 +78,11 @@ func Example() {
 	}
 
 	// 4. To run as a standalone service:
-	//    The platform provides Temporal connection details during registration.
+	//    The server provides platform registration, workflow service, and
+	//    Temporal gRPC proxy on a single address.
 	//
 	//   runner, err := sdk.NewRunner(mod,
-	//       sdk.WithPlatformURL("http://localhost:9999"),
+	//       sdk.WithServerURL("http://localhost:9999"),
 	//   )
 	//   if err != nil {
 	//       log.Fatal(err)

@@ -278,8 +278,7 @@ mod := sdk.NewModule("greeter",
 sdk.Register(mod, "greet", Greet)
 
 runner, _ := sdk.NewRunner(mod,
-    sdk.WithPlatformURL("http://localhost:9999"),
-    sdk.WithWorkflowURL("http://localhost:9999"),
+    sdk.WithServerURL("http://localhost:9999"),
 )
 runner.Run(context.Background())
 ```

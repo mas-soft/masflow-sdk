@@ -4,10 +4,10 @@
 // executes a workflow from the checked-in sample file to demonstrate the full round-trip.
 //
 //	# Worker only:
-//	go run . --platform=http://localhost:9999
+//	go run . --server=http://localhost:9999
 //
 //	# Worker + execute a workflow:
-//	go run . --platform=http://localhost:9999 --execute
+//	go run . --server=http://localhost:9999 --execute
 package main
 
 import (
@@ -51,17 +51,16 @@ func Greet(_ context.Context, in GreetInput) (GreetOutput, error) {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 func main() {
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	serverURL := flag.String("server", envOr("MASFLOW_SERVER_URL", ""), "Masflow server URL (required)")
 	execute := flag.Bool("execute", true, "Execute a sample greeting workflow after starting the worker")
 	yamlFile := flag.String("yaml", "workflows/greeting.yaml", "Path to workflow YAML file (used with --execute)")
 	name := flag.String("name", "World", "Name to greet (used with --execute)")
-	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 	flag.Parse()
 
-	if *platformURL == "" {
-		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	if *serverURL == "" {
+		log.Fatal("--server (or MASFLOW_SERVER_URL) is required")
 	} else {
-		log.Printf("Using platform URL: %s", *platformURL)
+		log.Printf("Using server URL: %s", *serverURL)
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -85,8 +84,7 @@ func main() {
 
 	// 3. Run — platform provides Temporal connection details
 	runner, err := sdk.NewRunner(mod,
-		sdk.WithPlatformURL(*platformURL),
-		sdk.WithWorkflowURL(*platformURL),
+		sdk.WithServerURL(*serverURL),
 		sdk.WithLogger(logger),
 	)
 	if err != nil {
@@ -96,7 +94,7 @@ func main() {
 	// If --execute, start worker in background, run a workflow, then keep running
 	if *execute {
 
-		if err := runner.Start(context.Background(), temporalAddr); err != nil {
+		if err := runner.Start(context.Background()); err != nil {
 			log.Fatalf("Failed to start runner: %v", err)
 		}
 
@@ -111,7 +109,7 @@ func main() {
 	}
 
 	// Normal mode: just run the worker and block
-	if err := runner.Run(context.Background(), temporalAddr); err != nil {
+	if err := runner.Run(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -120,7 +118,7 @@ func main() {
 // WorkflowClient, then polling for its status.
 func executeGreetingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile, name string) {
 	if wc == nil {
-		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		logger.Error("WorkflowClient not available (WithServerURL not set)")
 		return
 	}
 

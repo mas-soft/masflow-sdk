@@ -2,13 +2,13 @@
 //
 // This demonstrates running two separate modules (email + analytics), each
 // with its own task queue and runner, in a single Go process using errgroup.
-// The platform provides Temporal connection details during registration.
+// The server provides Temporal connection details during registration.
 //
 //	# Workers only:
-//	go run . --platform=http://localhost:9999
+//	go run . --server=http://localhost:9999
 //
 //	# Workers + execute a cross-module workflow:
-//	go run . --platform=http://localhost:9999 --execute
+//	go run . --server=http://localhost:9999 --execute
 package main
 
 import (
@@ -103,14 +103,13 @@ func Aggregate(_ context.Context, in AggregateInput) (AggregateOutput, error) {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 func main() {
-	platformURL := flag.String("platform", envOr("MASFLOW_PLATFORM_URL", ""), "Masflow platform URL (required)")
+	serverURL := flag.String("server", envOr("MASFLOW_SERVER_URL", ""), "Masflow server URL (required)")
 	execute := flag.Bool("execute", false, "Execute a cross-module onboarding workflow after starting workers")
 	yamlFile := flag.String("yaml", "workflows/cross-module.yaml", "Path to workflow YAML file (used with --execute)")
-	temporalAddr := flag.String("temporal-addr", "", "Optional override for Temporal address (useful for local development)")
 	flag.Parse()
 
-	if *platformURL == "" {
-		log.Fatal("--platform (or MASFLOW_PLATFORM_URL) is required")
+	if *serverURL == "" {
+		log.Fatal("--server (or MASFLOW_SERVER_URL) is required")
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -165,8 +164,7 @@ func main() {
 		runners := make([]*sdk.Runner, 0, 2)
 		for _, mod := range []*sdk.Module{emailMod, analyticsMod} {
 			runner, err := sdk.NewRunner(mod,
-				sdk.WithPlatformURL(*platformURL),
-				sdk.WithWorkflowURL(*platformURL),
+				sdk.WithServerURL(*serverURL),
 				sdk.WithLogger(logger.With("module", mod.Name)),
 			)
 			if err != nil {
@@ -174,7 +172,7 @@ func main() {
 			}
 
 			logger.Info("Starting module", "module", mod.Name, "task_queue", mod.TaskQueue)
-			if err := runner.Start(ctx, temporalAddr); err != nil {
+			if err := runner.Start(ctx); err != nil {
 				log.Fatalf("Failed to start %s: %v", mod.Name, err)
 			}
 			runners = append(runners, runner)
@@ -200,7 +198,7 @@ func main() {
 		mod := mod
 		g.Go(func() error {
 			runner, err := sdk.NewRunner(mod,
-				sdk.WithPlatformURL(*platformURL),
+				sdk.WithServerURL(*serverURL),
 				sdk.WithLogger(logger.With("module", mod.Name)),
 			)
 			if err != nil {
@@ -213,7 +211,7 @@ func main() {
 				"activities", len(mod.Activities()),
 			)
 
-			return runner.Run(gctx, temporalAddr)
+			return runner.Run(gctx)
 		})
 	}
 
@@ -226,7 +224,7 @@ func main() {
 // activities from both the email and analytics modules.
 func executeOnboardingWorkflow(wc *sdk.WorkflowClient, logger *slog.Logger, yamlFile string) {
 	if wc == nil {
-		logger.Error("WorkflowClient not available (WithWorkflowURL not set)")
+		logger.Error("WorkflowClient not available (WithServerURL not set)")
 		return
 	}
 
