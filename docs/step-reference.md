@@ -57,7 +57,7 @@ Execute a registered activity from any module. This is the most commonly used st
 | Field              | Required | Description                                                                            |
 | ------------------ | -------- | -------------------------------------------------------------------------------------- |
 | `type`             | Yes      | Activity name (matches the name passed to `Register` in the SDK)                       |
-| `module`           | No       | Module name. Used to derive the task queue as `{module}-task-queue`                     |
+| `module`           | Yes*     | Module name. Used to derive the task queue as `{module}-task-queue`. **Required for all third-party activities.** Only built-in platform activities may omit this field. |
 | `task_queue`       | No       | Explicit task queue override (takes precedence over module-derived queue)               |
 | `args`             | No       | Input arguments as a key-value map. Values support `${expression}` template syntax      |
 | `ref`              | No       | Binding key to store the activity's output for use in later steps                      |

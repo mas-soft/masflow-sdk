@@ -171,6 +171,8 @@ Data flows through a workflow via **bindings** — a shared key-value context th
 2. **`ref`** on an activity step stores its output into bindings under that key
 3. Subsequent steps access previous results via `${refName.field}` expressions
 
+> **Important:** All third-party activity steps must include the `module` field. Only built-in platform activities may omit it. The engine uses the module name to route the activity to the correct task queue (`{module}-task-queue`).
+
 ```yaml
 workflow:
   variables:
