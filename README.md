@@ -765,6 +765,7 @@ steps:
   - name: send-confirmation
     activity:
       type: sendEmail
+      module: notifications
       args:
         to: "${order.customer_email}"
         subject: "Order ${order.id} confirmed"
@@ -774,6 +775,7 @@ steps:
   - name: log-sent
     activity:
       type: logEvent
+      module: notifications
       args:
         message: "Confirmation sent: ${emailResult.message_id}"
         level: info
@@ -788,6 +790,7 @@ steps:
   - name: create-approval-ticket
     activity:
       type: createTicket
+      module: ticketing
       args:
         title: "Approve order ${order.id}"
         assignee: "manager@example.com"
