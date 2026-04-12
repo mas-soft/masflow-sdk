@@ -25,9 +25,10 @@ The Masflow SDK is a standalone Go module that lets you create custom activity m
 8. [Architecture](#architecture)
 9. [API Reference](#api-reference)
 10. [Workflow Client](#workflow-client)
-11. [Workflow YAML Integration](#workflow-yaml-integration)
-12. [Configuration Reference](#configuration-reference)
-13. [Troubleshooting](#troubleshooting)
+11. [Workflow Authoring](#workflow-authoring)
+12. [Workflow YAML Integration](#workflow-yaml-integration)
+13. [Configuration Reference](#configuration-reference)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -716,6 +717,40 @@ for _, w := range result.Warnings {
 | `Pause(ctx, workflowID, runID, reason)`     | Pause a running workflow                   |
 | `Resume(ctx, workflowID, runID, reason)`    | Resume a paused workflow                   |
 | `Validate(ctx, yaml)`                       | Validate workflow YAML without executing   |
+
+---
+
+## Workflow Authoring
+
+Once your activity modules are registered and running, you can orchestrate them using **workflow YAML definitions**. Workflows combine your custom activities with built-in step types — conditionals, loops, parallel execution, human tasks, AI agents, and more — to build complex business processes.
+
+The SDK includes comprehensive documentation for authoring workflows:
+
+- **[Workflow Authoring Guide](docs/workflow-guide.md)** — Step-by-step tutorial covering YAML structure, template expressions, data flow, execution, monitoring, and common patterns (conditionals, parallel, async approvals, error handling, AI-powered workflows)
+- **[Step Types Reference](docs/step-reference.md)** — Detailed reference for every available step type with parameters and YAML examples
+
+### Available Step Types
+
+| Step Type        | Key                | Description                              |
+| ---------------- | ------------------- | ---------------------------------------- |
+| Activity         | `activity`          | Execute a registered activity            |
+| If               | `if`                | Conditional branching (then/else)        |
+| Switch           | `switch`            | Multi-way branching by value             |
+| Try/Catch        | `try_catch`         | Error handling with try/catch/finally    |
+| Loop             | `loop`              | While-loop with condition                |
+| ForEach          | `foreach`           | Iterate over collections                 |
+| Parallel         | `parallel`          | Concurrent branch execution              |
+| Context Mutation | `context_mutation`  | Set or update workflow variables          |
+| Script           | `script`            | Inline JavaScript execution              |
+| Wait             | `wait`              | Pause for duration, timestamp, or signal |
+| Webhook Wait     | `webhook_wait`      | Wait for external webhook callback       |
+| Human Task       | `human_task`        | Human-in-the-loop with forms             |
+| Child Workflow   | `child_workflow`    | Execute a child workflow                 |
+| Subworkflow      | `subworkflow`       | Inline sub-workflow definition           |
+| Terminate        | `terminate`         | Stop workflow execution                  |
+| AI Agent         | `ai_agent`          | Single-turn LLM call                    |
+| AI Agent Loop    | `ai_agent_loop`     | Multi-turn agentic loop with tools       |
+| AI Tool Call     | `ai_tool_call`      | Direct LLM tool invocation              |
 
 ---
 
