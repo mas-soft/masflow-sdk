@@ -162,7 +162,7 @@ func TestToRelated(t *testing.T) {
 }
 
 func TestRunnerWorkflows(t *testing.T) {
-	m := NewModule("test")
+	m := NewModule("test", "0.0.0")
 
 	// Without WorkflowURL → nil
 	r, err := NewRunner(m, WithPlatformURL("http://localhost:9999"))
@@ -191,7 +191,7 @@ func TestRunnerWorkflows(t *testing.T) {
 }
 
 func TestNewRunnerRequiresPlatformURL(t *testing.T) {
-	m := NewModule("test")
+	m := NewModule("test", "0.0.0")
 	_, err := NewRunner(m)
 	if err == nil {
 		t.Fatal("expected error when platformURL is not set")
@@ -199,7 +199,7 @@ func TestNewRunnerRequiresPlatformURL(t *testing.T) {
 }
 
 func TestDefaultUsesConnectForHTTPPlatformURL(t *testing.T) {
-	m := NewModule("test")
+	m := NewModule("test", "0.0.0")
 
 	// Plain HTTP should default to Connect to avoid h2c/gRPC mismatches.
 	r, err := NewRunner(m,
@@ -221,7 +221,7 @@ func TestDefaultUsesConnectForHTTPPlatformURL(t *testing.T) {
 }
 
 func TestDefaultUsesGRPCForHTTPSPlatformURL(t *testing.T) {
-	m := NewModule("test")
+	m := NewModule("test", "0.0.0")
 
 	r, err := NewRunner(m,
 		WithPlatformURL("https://example.com"),
@@ -239,7 +239,7 @@ func TestDefaultUsesGRPCForHTTPSPlatformURL(t *testing.T) {
 }
 
 func TestWithConnect(t *testing.T) {
-	m := NewModule("test")
+	m := NewModule("test", "0.0.0")
 
 	// WithConnect should switch to HTTP/1.1 Connect protocol
 	r, err := NewRunner(m,
@@ -268,7 +268,7 @@ func TestWithWorkflowConnect(t *testing.T) {
 }
 
 func TestWithGRPCForcesPlainHTTPH2C(t *testing.T) {
-	m := NewModule("test")
+	m := NewModule("test", "0.0.0")
 
 	r, err := NewRunner(m,
 		WithPlatformURL("http://localhost:9999"),

@@ -43,9 +43,8 @@ func LogEvent(_ context.Context, input LogInput) error {
 
 func Example() {
 	// 1. Define the module
-	mod := sdk.NewModule("notifications",
+	mod := sdk.NewModule("notifications", "1.0.0",
 		sdk.WithModuleDescription("Email and SMS notification activities"),
-		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("bell"),
 		sdk.WithModuleAuthor("acme-corp"),
 		sdk.WithModuleCategory("notifications"),

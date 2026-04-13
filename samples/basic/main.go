@@ -66,9 +66,8 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// 1. Create module
-	mod := sdk.NewModule("greeter",
+	mod := sdk.NewModule("greeter", "1.0.0",
 		sdk.WithModuleDescription("A simple greeting module"),
-		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleAuthor("masflow-samples"),
 		sdk.WithModuleCategory("demo"),
 		sdk.WithModuleTags("greeting", "demo", "basic"),

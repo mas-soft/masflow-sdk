@@ -116,9 +116,8 @@ func main() {
 
 	// ── Email Module ─────────────────────────────────────────────────
 
-	emailMod := sdk.NewModule("email",
+	emailMod := sdk.NewModule("email", "1.0.0",
 		sdk.WithModuleDescription("Email sending and template rendering"),
-		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("mail"),
 		sdk.WithModuleCategory("email"),
 	)
@@ -135,9 +134,8 @@ func main() {
 
 	// ── Analytics Module ─────────────────────────────────────────────
 
-	analyticsMod := sdk.NewModule("analytics",
+	analyticsMod := sdk.NewModule("analytics", "1.0.0",
 		sdk.WithModuleDescription("Event tracking and metric aggregation"),
-		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("bar-chart"),
 		sdk.WithModuleCategory("analytics"),
 	)

@@ -21,9 +21,10 @@ type Module struct {
 }
 
 // NewModule creates a new module with the given name and options.
-func NewModule(name string, opts ...ModuleOption) *Module {
+func NewModule(name string, version string, opts ...ModuleOption) *Module {
 	m := &Module{
 		Name:       name,
+		Version:    version,
 		activities: make(map[string]*Definition),
 	}
 	for _, opt := range opts {
@@ -82,11 +83,6 @@ type ModuleOption func(*Module)
 // WithModuleDescription sets the module description.
 func WithModuleDescription(desc string) ModuleOption {
 	return func(m *Module) { m.Description = desc }
-}
-
-// WithModuleVersion sets the module version.
-func WithModuleVersion(ver string) ModuleOption {
-	return func(m *Module) { m.Version = ver }
 }
 
 // WithModuleIcon sets the module icon.

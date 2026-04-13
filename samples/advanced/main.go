@@ -41,9 +41,8 @@ func main() {
 
 	// ── Module ───────────────────────────────────────────────────────────
 
-	mod := sdk.NewModule("notifications",
+	mod := sdk.NewModule("notifications", "1.0.0",
 		sdk.WithModuleDescription("Email, SMS, Slack, and webhook notification activities"),
-		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("bell"),
 		sdk.WithModuleAuthor("masflow-samples"),
 		sdk.WithModuleCategory("notifications"),

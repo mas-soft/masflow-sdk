@@ -38,9 +38,8 @@ func asyncProcess(_ context.Context, input OrderInput, async *AsyncCallbackInfo)
 // --- Tests ---
 
 func TestRegister(t *testing.T) {
-	mod := NewModule("test-module",
+	mod := NewModule("test-module", "1.0.0",
 		WithModuleDescription("Test module"),
-		WithModuleVersion("1.0.0"),
 	)
 
 	err := Register(mod, "processOrder", processOrder,
@@ -84,7 +83,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisterVoid(t *testing.T) {
-	mod := NewModule("test-module")
+	mod := NewModule("test-module", "0.0.0")
 
 	err := RegisterVoid(mod, "logEvent", logEvent,
 		WithDescription("Log an event"),
@@ -107,7 +106,7 @@ func TestRegisterVoid(t *testing.T) {
 }
 
 func TestRegisterAsync(t *testing.T) {
-	mod := NewModule("test-module")
+	mod := NewModule("test-module", "0.0.0")
 
 	err := RegisterAsync(mod, "asyncProcess", asyncProcess,
 		WithDescription("Async process"),
@@ -127,7 +126,7 @@ func TestRegisterAsync(t *testing.T) {
 }
 
 func TestRegisterDuplicate(t *testing.T) {
-	mod := NewModule("test-module")
+	mod := NewModule("test-module", "0.0.0")
 
 	err := Register(mod, "processOrder", processOrder)
 	if err != nil {
@@ -141,7 +140,7 @@ func TestRegisterDuplicate(t *testing.T) {
 }
 
 func TestRegisterEmptyName(t *testing.T) {
-	mod := NewModule("test-module")
+	mod := NewModule("test-module", "0.0.0")
 
 	err := Register(mod, "", processOrder)
 	if err == nil {
@@ -150,7 +149,7 @@ func TestRegisterEmptyName(t *testing.T) {
 }
 
 func TestModuleTaskQueueAssignment(t *testing.T) {
-	mod := NewModule("my-service")
+	mod := NewModule("my-service", "0.0.0")
 	// Before registration, taskQueue is empty
 	if mod.TaskQueue() != "" {
 		t.Errorf("expected empty task queue before registration, got %q", mod.TaskQueue())
@@ -158,9 +157,8 @@ func TestModuleTaskQueueAssignment(t *testing.T) {
 }
 
 func TestModuleOptions(t *testing.T) {
-	mod := NewModule("my-module",
+	mod := NewModule("my-module", "2.0.0",
 		WithModuleDescription("A test module"),
-		WithModuleVersion("2.0.0"),
 		WithModuleIcon("star"),
 		WithModuleAuthor("tester"),
 		WithModuleCategory("testing"),
@@ -188,9 +186,8 @@ func TestModuleOptions(t *testing.T) {
 }
 
 func TestModuleToProto(t *testing.T) {
-	mod := NewModule("proto-test",
+	mod := NewModule("proto-test", "1.0.0",
 		WithModuleDescription("Proto conversion test"),
-		WithModuleVersion("1.0.0"),
 		WithModuleAuthor("tester"),
 		WithModuleCategory("testing"),
 		WithModuleTags("proto"),

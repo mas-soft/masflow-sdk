@@ -141,9 +141,8 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	mod := sdk.NewModule("approvals",
+	mod := sdk.NewModule("approvals", "1.0.0",
 		sdk.WithModuleDescription("Async approval and external job activities"),
-		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("clock"),
 		sdk.WithModuleAuthor("masflow-samples"),
 		sdk.WithModuleCategory("approvals"),

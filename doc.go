@@ -10,9 +10,7 @@
 //
 // Define a module, register activities, and run:
 //
-//	mod := masflowsdk.NewModule("my-module",
-//	    masflowsdk.WithModuleVersion("1.0.0"),
-//	)
+//	mod := masflowsdk.NewModule("my-module", "1.0.0")
 //
 //	masflowsdk.Register(mod, "myActivity", MyHandler,
 //	    masflowsdk.WithDescription("Does something useful"),
