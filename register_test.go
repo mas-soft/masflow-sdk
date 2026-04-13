@@ -41,7 +41,6 @@ func TestRegister(t *testing.T) {
 	mod := NewModule("test-module",
 		WithModuleDescription("Test module"),
 		WithModuleVersion("1.0.0"),
-		WithModuleTaskQueue("test-queue"),
 	)
 
 	err := Register(mod, "processOrder", processOrder,
@@ -85,7 +84,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisterVoid(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 
 	err := RegisterVoid(mod, "logEvent", logEvent,
 		WithDescription("Log an event"),
@@ -108,7 +107,7 @@ func TestRegisterVoid(t *testing.T) {
 }
 
 func TestRegisterAsync(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 
 	err := RegisterAsync(mod, "asyncProcess", asyncProcess,
 		WithDescription("Async process"),
@@ -128,7 +127,7 @@ func TestRegisterAsync(t *testing.T) {
 }
 
 func TestRegisterDuplicate(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 
 	err := Register(mod, "processOrder", processOrder)
 	if err != nil {
@@ -142,11 +141,19 @@ func TestRegisterDuplicate(t *testing.T) {
 }
 
 func TestRegisterEmptyName(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 
 	err := Register(mod, "", processOrder)
 	if err == nil {
 		t.Fatal("expected error on empty activity name")
+	}
+}
+
+func TestModuleTaskQueueAssignment(t *testing.T) {
+	mod := NewModule("my-service")
+	// Before registration, taskQueue is empty
+	if mod.TaskQueue() != "" {
+		t.Errorf("expected empty task queue before registration, got %q", mod.TaskQueue())
 	}
 }
 
@@ -155,7 +162,6 @@ func TestModuleOptions(t *testing.T) {
 		WithModuleDescription("A test module"),
 		WithModuleVersion("2.0.0"),
 		WithModuleIcon("star"),
-		WithModuleTaskQueue("my-queue"),
 		WithModuleAuthor("tester"),
 		WithModuleCategory("testing"),
 		WithModuleTags("tag1", "tag2"),
@@ -169,9 +175,6 @@ func TestModuleOptions(t *testing.T) {
 	}
 	if mod.Version != "2.0.0" {
 		t.Errorf("expected version '2.0.0', got %q", mod.Version)
-	}
-	if mod.TaskQueue != "my-queue" {
-		t.Errorf("expected task queue 'my-queue', got %q", mod.TaskQueue)
 	}
 	if mod.Author != "tester" {
 		t.Errorf("expected author 'tester', got %q", mod.Author)
@@ -188,7 +191,6 @@ func TestModuleToProto(t *testing.T) {
 	mod := NewModule("proto-test",
 		WithModuleDescription("Proto conversion test"),
 		WithModuleVersion("1.0.0"),
-		WithModuleTaskQueue("proto-queue"),
 		WithModuleAuthor("tester"),
 		WithModuleCategory("testing"),
 		WithModuleTags("proto"),
@@ -203,9 +205,6 @@ func TestModuleToProto(t *testing.T) {
 
 	if pb.GetName() != "proto-test" {
 		t.Errorf("expected proto name 'proto-test', got %q", pb.GetName())
-	}
-	if pb.GetTaskQueue() != "proto-queue" {
-		t.Errorf("expected proto task_queue 'proto-queue', got %q", pb.GetTaskQueue())
 	}
 	if len(pb.GetActivities()) != 1 {
 		t.Errorf("expected 1 activity in proto, got %d", len(pb.GetActivities()))

@@ -101,6 +101,8 @@ message RegisterModuleResponse {
   string temporal_namespace = 4;
   // True if an existing module with the same name was replaced.
   bool replaced = 5;
+  // Server-assigned task queue for the module's Temporal worker.
+  string task_queue = 6;
 }
 
 message UnregisterModuleRequest {

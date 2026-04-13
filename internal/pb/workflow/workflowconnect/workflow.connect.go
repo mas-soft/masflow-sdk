@@ -5,13 +5,12 @@
 package workflowconnect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	workflow "github.com/mas-soft/masflow-sdk/internal/pb/workflow"
 	http "net/http"
 	strings "strings"
-
-	connect "connectrpc.com/connect"
-	workflow "github.com/mas-soft/masflow-sdk/internal/pb/workflow"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are

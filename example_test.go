@@ -47,7 +47,6 @@ func Example() {
 		sdk.WithModuleDescription("Email and SMS notification activities"),
 		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("bell"),
-		sdk.WithModuleTaskQueue("notifications-task-queue"),
 		sdk.WithModuleAuthor("acme-corp"),
 		sdk.WithModuleCategory("notifications"),
 		sdk.WithModuleTags("email", "sms", "alerts"),

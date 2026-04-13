@@ -45,7 +45,6 @@ func main() {
 		sdk.WithModuleDescription("Email, SMS, Slack, and webhook notification activities"),
 		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("bell"),
-		sdk.WithModuleTaskQueue("notifications-task-queue"),
 		sdk.WithModuleAuthor("masflow-samples"),
 		sdk.WithModuleCategory("notifications"),
 		sdk.WithModuleTags("email", "sms", "slack", "webhook", "alerts"),
@@ -101,7 +100,6 @@ func main() {
 
 	logger.Info("Starting notifications module",
 		"server", *serverURL,
-		"task_queue", mod.TaskQueue,
 		"activities", len(mod.Activities()),
 	)
 

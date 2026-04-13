@@ -69,7 +69,6 @@ func main() {
 	mod := sdk.NewModule("greeter",
 		sdk.WithModuleDescription("A simple greeting module"),
 		sdk.WithModuleVersion("1.0.0"),
-		sdk.WithModuleTaskQueue("greeter-task-queue"),
 		sdk.WithModuleAuthor("masflow-samples"),
 		sdk.WithModuleCategory("demo"),
 		sdk.WithModuleTags("greeting", "demo", "basic"),

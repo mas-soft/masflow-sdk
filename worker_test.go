@@ -44,7 +44,7 @@ func (w *recordingWorker) Stop() {}
 var _ worker.Worker = (*recordingWorker)(nil)
 
 func TestRegisterAllRegistersActivities(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 	if err := Register(mod, "processOrder", processOrder); err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRegisterAllRegistersActivities(t *testing.T) {
 }
 
 func TestRegisterAllRejectsMissingHandler(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 	mod.addActivity(&Definition{Name: "broken"})
 
 	err := RegisterAll(&recordingWorker{}, mod)
@@ -84,7 +84,7 @@ func TestRegisterAllRejectsMissingHandler(t *testing.T) {
 }
 
 func TestRegisterAllRecoversRegistrationPanic(t *testing.T) {
-	mod := NewModule("test-module", WithModuleTaskQueue("test-queue"))
+	mod := NewModule("test-module")
 	if err := Register(mod, "processOrder", processOrder); err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}

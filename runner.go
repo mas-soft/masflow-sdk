@@ -42,9 +42,6 @@ func NewRunner(m *Module, opts ...RunnerOption) (*Runner, error) {
 	if m.Name == "" {
 		return nil, fmt.Errorf("module name is required")
 	}
-	if m.TaskQueue == "" {
-		return nil, fmt.Errorf("module task queue is required (use WithModuleTaskQueue)")
-	}
 
 	cfg := defaultConfig()
 	for _, opt := range opts {
@@ -144,6 +141,10 @@ func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress ...*string)
 
 	temporalAddr := resp.GetTemporalAddress()
 	temporalNS := resp.GetTemporalNamespace()
+	taskQueue := resp.GetTaskQueue()
+
+	// Store server-assigned task queue on the module.
+	r.module.taskQueue = taskQueue
 
 	// Deprecated: honour legacy overwrite if provided and non-empty.
 	if len(overwriteTemporalAddress) > 0 && overwriteTemporalAddress[0] != nil && *overwriteTemporalAddress[0] != "" {
@@ -156,6 +157,7 @@ func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress ...*string)
 		"platform_url", r.config.platformURL,
 		"temporal_address", temporalAddr,
 		"temporal_namespace", temporalNS,
+		"task_queue", taskQueue,
 	)
 
 	// 2. Connect to Temporal using platform-provided config
@@ -172,7 +174,7 @@ func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress ...*string)
 		"namespace", temporalNS)
 
 	// 3. Create and start the Temporal worker
-	r.worker = worker.New(r.temporalClient, r.module.TaskQueue, r.config.workerOptions)
+	r.worker = worker.New(r.temporalClient, taskQueue, r.config.workerOptions)
 	if err := RegisterAll(r.worker, r.module); err != nil {
 		r.temporalClient.Close()
 		r.temporalClient = nil
@@ -188,7 +190,7 @@ func (r *Runner) Start(ctx context.Context, overwriteTemporalAddress ...*string)
 	}
 	r.logger.Info("Temporal worker started",
 		"module", r.module.Name,
-		"task_queue", r.module.TaskQueue,
+		"task_queue", taskQueue,
 		"activities", len(r.module.activities))
 
 	return nil

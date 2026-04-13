@@ -145,7 +145,6 @@ func main() {
 		sdk.WithModuleDescription("Async approval and external job activities"),
 		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("clock"),
-		sdk.WithModuleTaskQueue("approvals-task-queue"),
 		sdk.WithModuleAuthor("masflow-samples"),
 		sdk.WithModuleCategory("approvals"),
 		sdk.WithModuleTags("async", "approval", "human-in-the-loop", "external-job"),
@@ -181,7 +180,6 @@ func main() {
 
 	logger.Info("Starting approvals module",
 		"activities", len(mod.Activities()),
-		"task_queue", mod.TaskQueue,
 	)
 
 	if *execute {

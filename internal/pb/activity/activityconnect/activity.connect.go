@@ -5,13 +5,12 @@
 package activityconnect
 
 import (
+	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	activity "github.com/mas-soft/masflow-sdk/internal/pb/activity"
 	http "net/http"
 	strings "strings"
-
-	connect "connectrpc.com/connect"
-	activity "github.com/mas-soft/masflow-sdk/internal/pb/activity"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are

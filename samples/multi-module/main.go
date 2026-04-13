@@ -120,7 +120,6 @@ func main() {
 		sdk.WithModuleDescription("Email sending and template rendering"),
 		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("mail"),
-		sdk.WithModuleTaskQueue("email-task-queue"),
 		sdk.WithModuleCategory("email"),
 	)
 
@@ -140,7 +139,6 @@ func main() {
 		sdk.WithModuleDescription("Event tracking and metric aggregation"),
 		sdk.WithModuleVersion("1.0.0"),
 		sdk.WithModuleIcon("bar-chart"),
-		sdk.WithModuleTaskQueue("analytics-task-queue"),
 		sdk.WithModuleCategory("analytics"),
 	)
 
@@ -171,7 +169,7 @@ func main() {
 				log.Fatalf("Failed to create runner for %s: %v", mod.Name, err)
 			}
 
-			logger.Info("Starting module", "module", mod.Name, "task_queue", mod.TaskQueue)
+			logger.Info("Starting module", "module", mod.Name)
 			if err := runner.Start(ctx); err != nil {
 				log.Fatalf("Failed to start %s: %v", mod.Name, err)
 			}
@@ -207,7 +205,6 @@ func main() {
 
 			logger.Info("Starting module",
 				"module", mod.Name,
-				"task_queue", mod.TaskQueue,
 				"activities", len(mod.Activities()),
 			)
 

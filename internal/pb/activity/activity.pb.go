@@ -7,14 +7,13 @@
 package activity
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -519,7 +518,9 @@ type RegisterModuleResponse struct {
 	TemporalAddress      string                 `protobuf:"bytes,3,opt,name=temporal_address,json=temporalAddress,proto3" json:"temporal_address,omitempty"`
 	TemporalNamespace    string                 `protobuf:"bytes,4,opt,name=temporal_namespace,json=temporalNamespace,proto3" json:"temporal_namespace,omitempty"`
 	// True if an existing module with the same name was replaced.
-	Replaced      bool `protobuf:"varint,5,opt,name=replaced,proto3" json:"replaced,omitempty"`
+	Replaced bool `protobuf:"varint,5,opt,name=replaced,proto3" json:"replaced,omitempty"`
+	// Server-assigned task queue for the module's Temporal worker.
+	TaskQueue     string `protobuf:"bytes,6,opt,name=task_queue,json=taskQueue,proto3" json:"task_queue,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -587,6 +588,13 @@ func (x *RegisterModuleResponse) GetReplaced() bool {
 		return x.Replaced
 	}
 	return false
+}
+
+func (x *RegisterModuleResponse) GetTaskQueue() string {
+	if x != nil {
+		return x.TaskQueue
+	}
+	return ""
 }
 
 type UnregisterModuleRequest struct {
@@ -1221,14 +1229,16 @@ const file_activity_activity_proto_rawDesc = "" +
 	"\x0fcallback_signal\x18\x03 \x01(\tR\x0ecallbackSignal\x12)\n" +
 	"\x10callback_timeout\x18\x04 \x01(\tR\x0fcallbackTimeout\"A\n" +
 	"\x15RegisterModuleRequest\x12(\n" +
-	"\x06module\x18\x01 \x01(\v2\x10.activity.ModuleR\x06module\"\xe4\x01\n" +
+	"\x06module\x18\x01 \x01(\v2\x10.activity.ModuleR\x06module\"\x83\x02\n" +
 	"\x16RegisterModuleResponse\x12\x1f\n" +
 	"\vmodule_name\x18\x01 \x01(\tR\n" +
 	"moduleName\x123\n" +
 	"\x15registered_activities\x18\x02 \x03(\tR\x14registeredActivities\x12)\n" +
 	"\x10temporal_address\x18\x03 \x01(\tR\x0ftemporalAddress\x12-\n" +
 	"\x12temporal_namespace\x18\x04 \x01(\tR\x11temporalNamespace\x12\x1a\n" +
-	"\breplaced\x18\x05 \x01(\bR\breplaced\":\n" +
+	"\breplaced\x18\x05 \x01(\bR\breplaced\x12\x1d\n" +
+	"\n" +
+	"task_queue\x18\x06 \x01(\tR\ttaskQueue\":\n" +
 	"\x17UnregisterModuleRequest\x12\x1f\n" +
 	"\vmodule_name\x18\x01 \x01(\tR\n" +
 	"moduleName\"\x1a\n" +

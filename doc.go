@@ -11,7 +11,6 @@
 // Define a module, register activities, and run:
 //
 //	mod := masflowsdk.NewModule("my-module",
-//	    masflowsdk.WithModuleTaskQueue("my-task-queue"),
 //	    masflowsdk.WithModuleVersion("1.0.0"),
 //	)
 //

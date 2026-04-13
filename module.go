@@ -13,7 +13,7 @@ type Module struct {
 	Description string
 	Version     string
 	Icon        string
-	TaskQueue   string
+	taskQueue   string // assigned by server during registration
 	Author      string
 	Category    string
 	Tags        []string
@@ -37,6 +37,12 @@ func (m *Module) Activities() map[string]*Definition {
 	return m.activities
 }
 
+// TaskQueue returns the task queue assigned by the server during registration.
+// Returns empty string before the runner has started.
+func (m *Module) TaskQueue() string {
+	return m.taskQueue
+}
+
 // GetActivity returns an activity definition by name.
 func (m *Module) GetActivity(name string) (*Definition, bool) {
 	d, ok := m.activities[name]
@@ -55,7 +61,6 @@ func (m *Module) toProto() *pb.Module {
 		Description: m.Description,
 		Version:     m.Version,
 		Icon:        m.Icon,
-		TaskQueue:   m.TaskQueue,
 		Metadata: &pb.ModuleMetadata{
 			Author:       m.Author,
 			Tags:         m.Tags,
@@ -87,11 +92,6 @@ func WithModuleVersion(ver string) ModuleOption {
 // WithModuleIcon sets the module icon.
 func WithModuleIcon(icon string) ModuleOption {
 	return func(m *Module) { m.Icon = icon }
-}
-
-// WithModuleTaskQueue sets the Temporal task queue for all activities in this module.
-func WithModuleTaskQueue(tq string) ModuleOption {
-	return func(m *Module) { m.TaskQueue = tq }
 }
 
 // WithModuleAuthor sets the module author.
